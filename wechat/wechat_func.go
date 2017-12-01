@@ -94,11 +94,11 @@ func (w *Wechat) getSyncMsg() (msgs []interface{}, err error) {
 	}
 	data, err := json.Marshal(params)
 
-	w.Log.Println(url)
-	w.Log.Println(string(data))
+	w.Notepad.DEBUG.Printf(url)
+	w.Notepad.DEBUG.Printf(string(data))
 
 	if err := w.Send(url, bytes.NewReader(data), syncResp); err != nil {
-		w.Log.Printf("w.Send(%s,%s,%+v) with error:%v", url, string(data), syncResp, err)
+		w.Notepad.INFO.Printf("w.Send(%s,%s,%+v) with error:%v", url, string(data), syncResp, err)
 		return nil, err
 	}
 	if syncResp.BaseResponse.Ret == 0 {
@@ -123,23 +123,24 @@ func (w *Wechat) SyncDaemon(msgIn chan Message) {
 		w.lastCheckTs = time.Now()
 		resp, err := w.SyncCheck()
 		if err != nil {
-			w.Log.Printf("w.SyncCheck() with error:%+v\n", err)
+			w.Notepad.WARN.Printf("w.SyncCheck() with error:%+v\n", err)
 			continue
 		}
 		switch resp.RetCode {
 		case 1100:
-			w.Log.Println("从微信上登出")
+			w.Notepad.WARN.Printf("从微信上登出")
 		case 1101:
-			w.Log.Println("从其他设备上登陆")
+			w.Notepad.WARN.Printf("从其他设备上登陆")
+			// fixme 无法触发
 			break
 		case 0:
 			switch resp.Selector {
 			case 2, 3: //有消息,未知
 				msgs, err := w.getSyncMsg()
-				w.Log.Printf("the msgs:%+v\n", msgs)
+				//w.Notepad.INFO.Printf("the msgs:%+v\n", msgs)
 
 				if err != nil {
-					w.Log.Printf("w.getSyncMsg() error:%+v\n", err)
+					w.Notepad.ERROR.Printf("w.getSyncMsg() error:%+v\n", err)
 				}
 
 				for _, m := range msgs {
@@ -162,7 +163,7 @@ func (w *Wechat) SyncDaemon(msgIn chan Message) {
 					msg.Content = strings.Replace(msg.Content, " ", " ", 1)
 					switch msg.MsgType {
 					case 1:
-
+						//文字
 						if msg.FromUserName[:2] == "@@" {
 							//群消息，暂时不处理
 							if msg.FromUserNickName == "" {
@@ -172,7 +173,7 @@ func (w *Wechat) SyncDaemon(msgIn chan Message) {
 							}
 						} else {
 							if w.AutoReply {
-								w.SendMsg(msg.FromUserName, w.AutoReplyMsg(), false)
+								go w.SendMsg(msg.FromUserName, w.AutoReplyMsg(), false)
 							}
 						}
 						if msg.ToUserNickName == "" {
@@ -211,14 +212,14 @@ func (w *Wechat) SyncDaemon(msgIn chan Message) {
 			case 4: //通讯录更新
 				w.GetContacts()
 			case 6: //可能是红包
-				w.Log.Println("请速去手机抢红包")
+				w.Notepad.INFO.Printf("请速去手机抢红包")
 			case 7:
-				w.Log.Println("在手机上操作了微信")
+				w.Notepad.INFO.Printf("在手机上操作了微信")
 			case 0:
-				w.Log.Println("无事件")
+				w.Notepad.INFO.Printf("消息:无事件")
 			}
 		default:
-			w.Log.Printf("the resp:%+v", resp)
+			w.Notepad.DEBUG.Printf("the resp:%+v", resp)
 			time.Sleep(time.Second * 4)
 
 			continue
@@ -237,10 +238,10 @@ func (w *Wechat) MsgDaemon(msgOut chan MessageOut, autoReply chan int) {
 	for {
 		select {
 		case msg = <-msgOut:
-			w.Log.Printf("the msg to send %+v", msg)
+			w.Notepad.INFO.Printf("the msg to send %+v", msg)
 			w.SendMsg(msg.ToUserName, msg.Content, false)
 		case autoMode = <-autoReply:
-			w.Log.Println("the autoreply mode:", autoMode)
+			w.Notepad.INFO.Printf("the autoreply mode:", autoMode)
 			if autoMode == 1 {
 				w.AutoReply = true
 			} else if autoMode == 0 {
@@ -302,11 +303,11 @@ func (w *Wechat) SyncCheck() (resp SyncCheckResp, err error) {
 		return
 	}
 	Url.RawQuery = params.Encode()
-	w.Log.Println(Url.String())
+	//w.Notepad.INFO.Printf(Url.String())
 
 	ret, err := w.Client.Get(Url.String())
 	if err != nil {
-		w.Log.Printf("the error is :%+v", err)
+		w.Notepad.INFO.Printf("the error is :%+v", err)
 		return
 	}
 	defer ret.Body.Close()
@@ -316,15 +317,15 @@ func (w *Wechat) SyncCheck() (resp SyncCheckResp, err error) {
 	if err != nil {
 		return
 	}
-	w.Log.Println(string(body))
+	w.Notepad.DEBUG.Printf(string(body))
 	resp = SyncCheckResp{}
 	reRedirect := regexp.MustCompile(`window.synccheck={retcode:"(\d+)",selector:"(\d+)"}`)
 	pmSub := reRedirect.FindStringSubmatch(string(body))
-	w.Log.Printf("the data:%+v", pmSub)
+	w.Notepad.DEBUG.Printf("the data:%+v", pmSub)
 	if len(pmSub) != 0 {
 		resp.RetCode, err = strconv.Atoi(pmSub[1])
 		resp.Selector, err = strconv.Atoi(pmSub[2])
-		w.Log.Printf("the resp:%+v", resp)
+		w.Notepad.DEBUG.Printf("the resp:%+v", resp)
 
 	} else {
 		err = errors.New("regex error in window.redirect_uri")
@@ -350,10 +351,10 @@ func (w *Wechat) SendMsg(toUserName, message string, isFile bool) (err error) {
 	params["Msg"] = msg
 	data, err := json.Marshal(params)
 	if err != nil {
-		w.Log.Printf("json.Marshal(%v):%v\n", params, err)
+		w.Notepad.INFO.Printf("json.Marshal(%v):%v\n", params, err)
 	}
 	if err := w.Send(apiUrl, bytes.NewReader(data), resp); err != nil {
-		w.Log.Print("w.Send(%s,%v,%v):%v", apiUrl, string(data), err)
+		w.Notepad.INFO.Print("w.Send(%s,%v,%v):%v", apiUrl, string(data), err)
 	}
 
 	return
@@ -428,7 +429,7 @@ func (w *Wechat) Send(apiURI string, body io.Reader, call Caller) (err error) {
 	reader := resp.Body.(io.Reader)
 
 	if err = json.NewDecoder(reader).Decode(call); err != nil {
-		w.Log.Printf("the error:%+v", err)
+		w.Notepad.INFO.Printf("the error:%+v", err)
 		return
 	}
 	if !call.IsSuccess() {
@@ -458,10 +459,10 @@ func (w *Wechat) SendTest(apiURI string, body io.Reader, call Caller) (err error
 	reader := resp.Body.(io.Reader)
 
 	respBody, err := ioutil.ReadAll(reader)
-	w.Log.Printf("the respBody:%s", string(respBody))
+	w.Notepad.INFO.Printf("the respBody:%s", string(respBody))
 
 	if err = json.NewDecoder(reader).Decode(call); err != nil {
-		w.Log.Printf("the error:%+v", err)
+		w.Notepad.INFO.Printf("the error:%+v", err)
 		return
 	}
 	if !call.IsSuccess() {

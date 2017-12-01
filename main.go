@@ -7,6 +7,7 @@ import (
 	"os"
 	"path"
 	WeChat "yx.com/wechat-auto-server/wechat"
+	jww "github.com/spf13/jwalterweatherman"
 )
 
 const (
@@ -21,93 +22,64 @@ type Config struct {
 }
 
 func main() {
-
-	logger := log.New(os.Stdout, "[*]->:", log.LstdFlags)
-
-	logger.Println("启动...")
-	fileName := "log.txt"
 	var logFile *os.File
-	logFile, err := os.OpenFile(fileName, os.O_CREATE|os.O_APPEND|os.O_RDWR, 0666)
-
 	defer logFile.Close()
-	if err != nil {
-		logger.Printf("打开文件失败!\n")
-	}
+	err, wxNotepad := getWXLogger(logFile)
 
-	wxLogger := log.New(os.Stdout, "[wechat]", log.LstdFlags)
+	wxNotepad.INFO.Print("启动...")
 
-	wechat := WeChat.NewWechat(wxLogger)
+	wechat := WeChat.NewWechat(wxNotepad)
 
 	if err := wechat.WaitForLogin(); err != nil {
-		logger.Fatalf("等待失败：%s\n", err.Error())
+		wxNotepad.ERROR.Printf("等待失败：%s\n", err.Error())
 		return
 	}
 	srcPath, err := os.Getwd()
 	if err != nil {
-		logger.Printf("获得路径失败:%#v\n", err)
+		wxNotepad.INFO.Printf("获得路径失败:%#v\n", err)
 	}
 	configFile := path.Join(path.Clean(srcPath), "config.json")
 	if _, err := os.Stat(configFile); os.IsNotExist(err) {
-		logger.Fatalln("请提供配置文件：config.json")
+		wxNotepad.ERROR.Printf("请提供配置文件：config.json")
 		return
 	}
 
 	b, err := ioutil.ReadFile(configFile)
 	if err != nil {
-		logger.Fatalln("读取文件失败：%#v", err)
+		wxNotepad.ERROR.Printf("读取文件失败：%#v", err)
 		return
 	}
 	var config *Config
 	err = json.Unmarshal(b, &config)
 
-	logger.Printf("登陆...\n")
+	wxNotepad.INFO.Printf("登陆...\n")
 
 	wechat.AutoReplyMode = config.AutoReply
 	wechat.ReplyMsgs = config.ReplyMsg
 	wechat.AutoReplySrc = config.AutoReplySrc
 
 	if err := wechat.Login(); err != nil {
-		logger.Printf("登陆失败：%v\n", err)
+		wxNotepad.INFO.Printf("登陆失败：%v\n", err)
 		return
 	}
-	logger.Printf("配置文件:%+v\n", config)
+	wxNotepad.DEBUG.Printf("配置文件:%+v\n", config)
 
-	logger.Println("成功!")
+	wxNotepad.INFO.Print("成功!")
 
-	logger.Println("微信初始化成功...")
+	wxNotepad.INFO.Print("微信初始化成功...")
 
-	logger.Println("开启状态栏通知...")
+	wxNotepad.INFO.Print("开启状态栏通知...")
 	if err := wechat.StatusNotify(); err != nil {
 		return
 	}
 	if err := wechat.GetContacts(); err != nil {
-		logger.Fatalf("拉取联系人失败:%v\n", err)
+		wxNotepad.ERROR.Printf("拉取联系人失败:%v\n", err)
 		return
 	}
 
 	if err := wechat.TestCheck(); err != nil {
-		logger.Fatalf("检查状态失败:%v\n", err)
+		wxNotepad.ERROR.Printf("检查状态失败:%v\n", err)
 		return
-	}
-
-	nickNameList := []string{}
-	userIDList := []string{}
-
-	for _, member := range wechat.InitContactList {
-		nickNameList = append(nickNameList, member.NickName)
-		userIDList = append(userIDList, member.UserName)
-
-	}
-
-	for _, member := range wechat.ContactList {
-		nickNameList = append(nickNameList, member.NickName)
-		userIDList = append(userIDList, member.UserName)
-	}
-
-	for _, member := range wechat.PublicUserList {
-		nickNameList = append(nickNameList, member.NickName)
-		userIDList = append(userIDList, member.UserName)
-
 	}
 
 	msgIn := make(chan WeChat.Message, maxChanSize)
@@ -116,7 +88,13 @@ func main() {
 
 	go wechat.SyncDaemon(msgIn)
 	go wechat.MsgDaemon(msgOut, autoChan)
+	go wechat.MsgProcessDaemon(msgIn)
 
-	system := make(chan bool)
-	<-system
+	WeChat.SystemLoop()
+}
+func getWXLogger(logFile *os.File) (error, *jww.Notepad) {
+	fileName := "log.txt"
+	logFile, err := os.OpenFile(fileName, os.O_CREATE|os.O_APPEND|os.O_RDWR, 0666)
+	wxNotepad := jww.NewNotepad(jww.LevelInfo, jww.LevelDebug, os.Stdout, logFile, "wechat", log.Ldate|log.Ltime)
+	return err, wxNotepad
 }

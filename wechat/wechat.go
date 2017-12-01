@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"log"
 	"net/http"
 	"net/http/cookiejar"
 	"net/url"
@@ -22,6 +21,7 @@ import (
 	"time"
 	"github.com/tuotoo/qrcode"
 	"github.com/Baozisoftware/qrcode-terminal-go"
+	jww "github.com/spf13/jwalterweatherman"
 )
 
 const (
@@ -82,7 +82,7 @@ type Wechat struct {
 	QrImagePath   string
 	Client        *http.Client
 	Request       *BaseRequest
-	Log           *log.Logger
+	Notepad       *jww.Notepad
 	MemberMap     map[string]Member
 	ChatSet       []string
 
@@ -92,7 +92,7 @@ type Wechat struct {
 	lastCheckTs  time.Time
 }
 
-func NewWechat(logger *log.Logger) *Wechat {
+func NewWechat(notepad *jww.Notepad) *Wechat {
 	jar, err := cookiejar.New(nil)
 	if err != nil {
 		return nil
@@ -121,7 +121,7 @@ func NewWechat(logger *log.Logger) *Wechat {
 		Root:        root,
 		SaveFolder:  path.Join(root, "saved"),
 		QrImagePath: filepath.Join(root, "qr.jpg"),
-		Log:         logger,
+		Notepad:     notepad,
 		MemberMap:   make(map[string]Member),
 	}
 
@@ -138,7 +138,7 @@ func (w *Wechat) WaitForLogin() (err error) {
 		err = fmt.Errorf("创建二维码失败:%s", err.Error())
 	}
 	defer os.Remove(w.QrImagePath)
-	w.Log.Println("扫描二维码登陆....")
+	w.Notepad.INFO.Printf("扫描二维码登陆....")
 	code, tip := "", 1
 	for code != "200" {
 		w.RedirectedUri, code, tip, err = w.waitToLogin(w.Uuid, tip)
@@ -175,7 +175,7 @@ func (w *Wechat) waitToLogin(uuid string, tip int) (redirectUri, code string, rt
 	rt = 0
 	switch code {
 	case "201":
-		w.Log.Println("扫描成功，请在手机上点击确认登陆")
+		w.Notepad.INFO.Printf("扫描成功，请在手机上点击确认登陆")
 	case "200":
 		reRedirect := regexp.MustCompile(`window.redirect_uri="(\S+?)"`)
 		pmSub := reRedirect.FindStringSubmatch(string(data))
@@ -233,7 +233,7 @@ func (w *Wechat) GetQR() (err error) {
 	if err != nil {
 		return
 	}
-	w.Log.Println(`登录二维码：` + qrMatrix.Content)
+	w.Notepad.INFO.Printf(`登录二维码：` + qrMatrix.Content)
 	qrcodeTerminal.New().Get(qrMatrix.Content).Print()
 	return
 	//return open.Start(w.QrImagePath)
@@ -265,7 +265,7 @@ func (w *Wechat) GetUUID() (err error) {
 
 	re := regexp.MustCompile(`window.QRLogin.code = (\d+); window.QRLogin.uuid = "(\S+?)"`)
 	pm := re.FindStringSubmatch(string(datas))
-	w.Log.Printf("%v", pm)
+	//w.Notepad.WARN.Printf("%v", pm)
 	if len(pm) > 0 {
 		code := pm[1]
 		if code != "200" {
@@ -281,7 +281,7 @@ func (w *Wechat) GetUUID() (err error) {
 }
 
 func (w *Wechat) Login() (err error) {
-	w.Log.Printf("the redirectedUri:%v", w.RedirectedUri)
+	w.Notepad.DEBUG.Printf("the redirectedUri:%v", w.RedirectedUri)
 
 	resp, err := w.Client.Get(w.RedirectedUri)
 	if err != nil {
@@ -315,9 +315,10 @@ func (w *Wechat) Login() (err error) {
 	if err = w.Send(apiUri, bytes.NewReader(data), newResp); err != nil {
 		return
 	}
-	w.Log.Printf("the newResp:%#v", newResp)
+	w.Notepad.DEBUG.Printf("the newResp:%#v", newResp)
 	for _, contact := range newResp.ContactList {
 		w.InitContactList = append(w.InitContactList, contact)
+		// fixme 在此将初始化的记录加入到聊天人列表
 	}
 
 	w.ChatSet = strings.Split(newResp.ChatSet, ",")
@@ -334,7 +335,7 @@ func (w *Wechat) Login() (err error) {
 		w.SyncKeyStr += "|" + strconv.Itoa(item.Key) + "_" + strconv.Itoa(item.Val)
 
 	}
-	w.Log.Printf("the response:%+v\n", newResp)
-	w.Log.Printf("the sync key is %s\n", w.SyncKeyStr)
+	w.Notepad.DEBUG.Printf("the response:%+v\n", newResp)
+	w.Notepad.DEBUG.Printf("the sync key is %s\n", w.SyncKeyStr)
 	return
 }
