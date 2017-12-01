@@ -117,4 +117,6 @@ func main() {
 	go wechat.SyncDaemon(msgIn)
 	go wechat.MsgDaemon(msgOut, autoChan)
 
+	system := make(chan bool)
+	<-system
 }
