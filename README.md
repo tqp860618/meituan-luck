@@ -6,3 +6,4 @@
 + 启动抢红包进程
 
 ``go run main.go luck``
+
