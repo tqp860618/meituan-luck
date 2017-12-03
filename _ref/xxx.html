@@ -1,0 +1,896 @@
+<!DOCTYPE HTML>
+<html>
+
+<head>
+    <title>美团外卖</title>
+    <meta charset="utf-8"/>
+    <meta name="viewport"
+          content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes"/>
+    <meta name="apple-mobile-web-app-status-bar-style" content="black"/>
+    <meta name="format-detection" content="telephone=no"/>
+    <meta http-equiv="X-UA-Compatible" content="edge"/>
+    <link href="https://p0.meituan.net" rel="dns-prefetch">
+    <link href="https://p1.meituan.net" rel="dns-prefetch">
+    <link href="https://mc.meituan.net" rel="dns-prefetch">
+    <link href="https://xs01.meituan.net" rel="dns-prefetch">
+    <link rel="shortcut icon" type="image/vnd.microsoft.icon" href="https://xs01.meituan.net/waimai_i/img/favicon3.png">
+    <link rel="icon" href="https://xs01.meituan.net/waimai_i/img/favicon3.png" size="16x16 32x32">
+    <link rel="apple-touch-icon-precomposed" href="/static/img/favicon4.png" size="114x114">
+    <script>
+        var MT_WM = window.MT_WM || {};
+        MT_WM.TimeTracker = {
+            rt: 1512209610014,
+            st: Date.now(),
+        };
+        MT_WM.logFirstScreenTime = function() {
+            MT_WM.TimeTracker.fst = Date.now();
+        };
+        window.addEventListener('load', function() {
+            //保存性能时间
+            MT_WM.TimeTracker.lt = Date.now();
+        });
+        MT_WM.STATIC_ROOT = 'https://xs01.meituan.net/waimai_c_activity_web/5a1e5313';
+
+        function delayGo(u, t) {
+            setTimeout(function() {
+                if (typeof u == 'string') location = u;
+                else if (typeof u == 'function') u();
+            }, (t == null ? 300 : t));
+        }
+    </script>
+    <!-- 接入owl-->
+    <script>
+        'use strict';
+        !function() {
+            var a = arguments.length > 0 && void 0 !== arguments[0] ? arguments[0] : '_Owl_',
+                    i = window,
+                    t = {
+                        page: !0,
+                        resource: !0,
+                        js: !0,
+                    };
+            i[a] || (i[a] = {
+                isRunning: !1,
+                isReady: !1,
+                preTasks: [],
+                config: t,
+                dataSet: [],
+                use: function(a, t) {
+                    this.isReady && i.Owl && i.Owl[a](t), this.preTasks.push({
+                        api: a,
+                        data: [t],
+                    });
+                },
+                add: function(a) {
+                    this.dataSet.push(a);
+                },
+                run: function(a) {
+                    var t = this;
+                    if (!this.isRunning) {
+                        this.isRunning = !0;
+                        var e = a || this.config;
+                        if (!1 !== e.js) {
+                            var n = i.onerror;
+                            i.onerror = function() {
+                                this.isReady || this.add({
+                                    type: 'jsError',
+                                    data: arguments,
+                                }), n && n.apply(i, arguments);
+                            }.bind(this);
+                        }
+                        var r = i.addEventListener || i.attachEvent;
+                        !1 !== e.page && r('load', function() {
+                            if (!t.isReady) {
+                                var a = i.performance && i.performance.timing;
+                                t.add({
+                                    type: 'pageTime',
+                                    data: [a],
+                                });
+                            }
+                        }), !1 !== e.resource && (r('error', function(a) {
+                            t.isReady || t.add({
+                                type: 'resError',
+                                data: [a],
+                            });
+                        }, !0), r('load', function(a) {
+                            t.isReady || t.add({
+                                type: 'resTime',
+                                data: [a],
+                            });
+                        }));
+                    }
+                },
+            });
+        }();
+
+        _Owl_.run({
+            page: true,
+            js: true,
+            resource: true,
+            //            devMode: true
+        });
+    </script>
+    <script type="text/javascript">
+        !function(e, t, n) {
+            function s() {
+                var e = t.createElement('script');
+                e.async = !0, e.src = '//s0.meituan.' + (-1 === t.location.protocol.indexOf('https') ? 'net' : 'com') +
+                        '/bs/js/?f=mta-js:mta.min.js';
+                var n = t.getElementsByTagName('script')[0];
+                n.parentNode.insertBefore(e, n);
+            }
+
+            if (e.MeituanAnalyticsObject = n, e[n] = e[n] || function() {
+                        (e[n].q = e[n].q || []).push(arguments);
+                    }, 'complete' === t.readyState) s();
+            else {
+                var i = 'addEventListener',
+                        r = 'attachEvent';
+                if (e[i]) e[i]('load', s, !1);
+                else if (e[r]) e[r]('onload', s);
+                else {
+                    var a = e.onload;
+                    e.onload = function() {
+                        s(), a && a();
+                    };
+                }
+            }
+        }(window, document, 'mta'),
+                function(e, t, n) {
+                    if (t && !('_mta' in t)) {
+                        t._mta = !0;
+                        var s = e.location.protocol;
+                        if ('file:' !== s) {
+                            var i = e.location.host,
+                                    r = t.prototype.open;
+                            t.prototype.open = function(t, n, a, o, l) {
+                                if (this._method = 'string' == typeof t ? t.toUpperCase() : null, n) {
+                                    if (0 === n.indexOf('http://') || 0 === n.indexOf('https://') ||
+                                            0 === n.indexOf('//')) this._url = n;
+                                    else if (0 === n.indexOf('/')) this._url = s + '//' + i + n;
+                                    else {
+                                        var h = s + '//' + i + e.location.pathname;
+                                        h = h.substring(0, h.lastIndexOf('/') + 1), this._url = h + n;
+                                    }
+                                    var u = this._url.indexOf('?');
+                                    -1 !== u ? (this._searchLength = this._url.length - 1 - u, this._url =
+                                            this._url.substring(0, u)) : this._searchLength = 0;
+                                } else this._url = null, this._searchLength = 0;
+                                return this._startTime = (new Date).getTime(), r.apply(this, arguments);
+                            };
+                            var a = 'onreadystatechange',
+                                    o = 'addEventListener',
+                                    l = t.prototype.send;
+                            t.prototype.send = function(t) {
+                                function n(n, i) {
+                                    if (0 !== n._url.indexOf(s + '//frep.meituan.net/_.gif')) {
+                                        var r;
+                                        if (n.response) switch (n.responseType) {
+                                            case 'json':
+                                                r = JSON && JSON.stringify(n.response).length;
+                                                break;
+                                            case 'blob':
+                                            case 'moz-blob':
+                                                r = n.response.size;
+                                                break;
+                                            case 'arraybuffer':
+                                                r = n.response.byteLength;
+                                            case 'document':
+                                                r = n.response.documentElement &&
+                                                        n.response.documentElement.innerHTML &&
+                                                        n.response.documentElement.innerHTML.length + 28;
+                                                break;
+                                            default:
+                                                r = n.response.length;
+                                        }
+                                        e.mta('send', 'browser.ajax', {
+                                            url: n._url.replace(/\.[^\.]*\.css/, '/css').replace(/\.[^\.]*\.js/, '/js'),
+                                            method: n._method,
+                                            error: !(0 === n.status.toString().indexOf('2') || 304 === n.status),
+                                            responseTime: (new Date).getTime() - n._startTime,
+                                            requestSize: n._searchLength + (t ? t.length : 0),
+                                            responseSize: r || 0,
+                                        });
+                                    }
+                                }
+
+                                if (o in this) {
+                                    var i = function(e) {
+                                        n(this, e);
+                                    };
+                                    this[o]('load', i), this[o]('error', i), this[o]('abort', i);
+                                } else {
+                                    var r = this[a];
+                                    this[a] = function(t) {
+                                        r && r.apply(this, arguments), 4 === this.readyState && e.mta && n(this, t);
+                                    };
+                                }
+                                return l.apply(this, arguments);
+                            };
+                        }
+                    }
+                }(window, window.XMLHttpRequest, 'mta');
+
+        mta('create', '5717544118694ae10be89206');
+        mta('send', 'page');
+    </script>
+    <script>
+        !function() {
+            window.lsloader = {
+                jsRunSequence: [],
+                jsnamemap: {},
+                cssnamemap: {},
+            }, lsloader.removeLS = function(e) {
+                try {
+                    localStorage.removeItem(e);
+                } catch (t) {
+                }
+            }, lsloader.setLS = function(e, t) {
+                try {
+                    localStorage.setItem(e, t);
+                } catch (s) {
+                }
+            }, lsloader.getLS = function(e) {
+                var t = '';
+                try {
+                    t = localStorage.getItem(e);
+                } catch (s) {
+                    t = '';
+                }
+                return t;
+            }, lsloader.load = function(e, t, s) {
+                s = s || function() {
+                };
+                var n;
+                if (n = this.getLS(e), !/\/\*codestartv1\*\//.test(n)) return this.removeLS(
+                        e), void this.requestResource(e,
+                        t, s);
+                if (n) {
+                    var a = n.split('/*codestartv1*/')[0];
+                    if (a != t) return this.removeLS(e), void this.requestResource(e, t, s);
+                    n = n.split('/*codestartv1*/')[1], /\.js$/.test(a) ? (this.jsRunSequence.push({
+                        name: e,
+                        code: n,
+                    }), this.runjs(t, e, n)) : (document.getElementById(e).appendChild(document.createTextNode(n)), s());
+                } else this.requestResource(e, t, s);
+            }, lsloader.requestResource = function(e, t, s) {
+                var n = this;
+                /\.js$/.test(t) ? this.iojs(t, e, function(e, t, s) {
+                    n.setLS(t, e + '/*codestartv1*/' + s), n.runjs(e, t, s);
+                }) : /\.css$/.test(t) && this.iocss(t, e, function(s) {
+                    document.getElementById(e).appendChild(document.createTextNode(s)), n.setLS(e, t +
+                            '/*codestartv1*/' +
+                            s);
+                }, s);
+            }, lsloader.iojs = function(e, t, s) {
+                var n = this;
+                n.jsRunSequence.push({
+                    name: t,
+                    code: '',
+                });
+                try {
+                    var a = new XMLHttpRequest;
+                    a.open('get', e, !0), a.onreadystatechange = function() {
+                        if (4 == a.readyState) {
+                            if ((a.status >= 200 && a.status < 300 || 304 == a.status) &&
+                                    '' != a.response) return void s(e, t, a.response);
+                            n.jsfallback(e, t);
+                        }
+                    }, a.send(null);
+                } catch (u) {
+                    n.jsfallback(e, t);
+                }
+            }, lsloader.iocss = function(e, t, s, n) {
+                var a = this;
+                try {
+                    var u = new XMLHttpRequest;
+                    u.open('get', e, !0), u.onreadystatechange = function() {
+                        if (4 == u.readyState) {
+                            if ((u.status >= 200 && u.status < 300 || 304 == u.status) && '' != u.response) return s(
+                                    u.response),
+                                    void n();
+                            a.cssfallback(e, t, n);
+                        }
+                    }, u.send(null);
+                } catch (c) {
+                    a.cssfallback(e, t, n);
+                }
+            }, lsloader.runjs = function(e, t, s) {
+                if (t && s)
+                    for (var n in this.jsRunSequence) this.jsRunSequence[n].name == t &&
+                    (this.jsRunSequence[n].code = s);
+                if (this.jsRunSequence[0] && '' != this.jsRunSequence[0].code) document.getElementById(
+                        this.jsRunSequence[0].name).
+                        appendChild(document.createTextNode(
+                                this.jsRunSequence[0].code)), this.jsRunSequence.shift(), this.jsRunSequence.length >
+                0 && this.runjs();
+                else if (this.jsRunSequence[0] && 'failed' == this.jsRunSequence[0].status) {
+                    var a = this,
+                            u = document.createElement('script');
+                    u.src = this.jsRunSequence[0].path, this.jsRunSequence[0].status = 'loading', u.onload = function() {
+                        a.jsRunSequence.shift(), a.jsRunSequence.length > 0 && a.runjs();
+                    };
+                    var c = document.getElementsByTagName('script')[0];
+                    c.parentNode.insertBefore(u, c);
+                }
+            }, lsloader.tagLoad = function(e, t) {
+                this.jsRunSequence.push({
+                    name: t,
+                    code: '',
+                    path: e,
+                    status: 'failed',
+                }), this.runjs();
+            }, lsloader.jsfallback = function(e, t) {
+                if (!this.jsnamemap[t]) {
+                    this.jsnamemap[t] = t;
+                    for (var s in this.jsRunSequence) this.jsRunSequence[s].name == t &&
+                    (this.jsRunSequence[s].code = '', this.jsRunSequence[s].status = 'failed', this.jsRunSequence[s].path = e);
+                    this.runjs();
+                }
+            }, lsloader.cssfallback = function(e, t, s) {
+                if (!this.cssnamemap[t]) {
+                    this.cssnamemap[t] = 1;
+                    var n = document.createElement('link');
+                    n.type = 'text/css', n.href = e, n.rel = 'stylesheet', n.onload = n.onerror = s;
+                    var a = document.getElementsByTagName('script')[0];
+                    a.parentNode.insertBefore(n, a);
+                }
+            }, lsloader.runInlineScript = function(e, t) {
+                var s = document.getElementById(t);
+                if (s) {
+                    var n = s.innerText;
+                    this.jsRunSequence.push({
+                        name: e,
+                        code: n,
+                    }), this.runjs();
+                }
+            };
+        }();
+    </script>
+
+    <script>
+        document.documentElement.style.display = 'none';
+    </script>
+    <style id="/static/css/global.css"></style>
+    <script>
+        lsloader.load('/static/css/global.css',
+                'https://xs01.meituan.net/waimai_c_activity_web/css/global.a7ee7838.css');
+    </script>
+
+
+    <script>
+        (function() {
+            function o() {
+                document.documentElement.style.fontSize = (document.documentElement.clientWidth &&
+                document.documentElement.clientWidth <
+                414 ? document.documentElement.clientWidth : 414) / 12 + 'px';
+            }
+
+            var e = null;
+            window.addEventListener('resize', function() {
+                clearTimeout(e), e = setTimeout(o, 300);
+            }, !1), o();
+        })(window);
+    </script>
+    <style id="/static/css/page/activity/red-enve-schoolopen.css"></style>
+    <script>
+        lsloader.load('/static/css/page/activity/red-enve-schoolopen.css',
+                'https://xs01.meituan.net/waimai_c_activity_web/css/page/activity/red-enve-schoolopen.2a789e8a.css',
+                function() {
+                    document.documentElement.style.display = '';
+                });
+    </script>
+    <style id="/static/css/page/activity/surprise-dialog.css"></style>
+    <script>
+        lsloader.load('/static/css/page/activity/surprise-dialog.css',
+                'https://xs01.meituan.net/waimai_c_activity_web/css/page/activity/surprise-dialog.6df549c0.css',
+                function() {
+                    document.documentElement.style.display = '';
+                });
+    </script>
+    <!-- 页面名称：分享红包，上报页面标识 -->
+    <meta name="lx:cid" content="c_iigtgnqg">
+    <!-- channelIdentifier 替换为您的上报通道标识 -->
+    <meta name="lx:category" content="waimai">
+    <!-- appIdentifier 替换为您在配置平台配置的应用标识，必须设置。数据组同学要求，避免在天平端归类为其他，暂定waimai_i,实际配置为waimai_c_activity -->
+    <meta name="lx:appnm" content="waimai_i">
+    <meta name="lx:autopv" content="off"/>
+    <link rel="dns-prefetch" href="//analytics.meituan.net"/>
+    <script type="text/javascript">
+        !(function(win, doc, ns) {
+            var cacheFunName = '_MeiTuanALogObject';
+            win[cacheFunName] = ns;
+            if (!win[ns]) {
+                var _LX = function() {
+                    _LX.q.push(arguments);
+                    return _LX;
+                };
+                _LX.q = _LX.q || [];
+                _LX.l = +new Date();
+                win[ns] = _LX;
+            }
+        })(window, document, 'LXAnalytics');
+        (function() {
+            LXAnalytics('set', 'os', 'html');
+            LXAnalytics('set', 'lch', 'i');
+        })();
+    </script>
+    <script id="/static/js/lib/analytics.js"></script>
+    <script>
+        lsloader.load('/static/js/lib/analytics.js',
+                'https://xs01.meituan.net/waimai_c_activity_web/js/lib/analytics.cbcbb3d0.js');
+    </script>
+</head>
+
+<body>
+
+
+
+
+
+
+<div class="wrapper">
+    <div class="t-banner"></div>
+
+    <style>
+        #goto-btn {
+            display: none;
+        }
+    </style>
+    <div class="content-bg" id="j-fetch" style="display: none">
+        <section id="j-fetch-inner" class="content1">
+            <div class="opr">
+                <input id="phone-input" type="tel" class="borderradius-3" placeholder="请输入您的手机号" maxlength="11"/>
+
+                <div id="capture-tip" class="capture-tip"></div>
+                <input id="capture-btn" class="combtn borderradius-3" type="button" value="立即领取"/>
+            </div>
+        </section>
+    </div>
+
+<section id="j-result" class="content2 content-bg" style="display: none;">
+<div class="result">
+<div id="rst-success-coupon" style="display: none;">
+<script data-id="card_tpl-coupon" type="text/x-dot-template">
+        <div data-type="{{=it.coupon_first_source}}"
+        data-position=1 data-configId="{{=it.couponConfigId}}" data-id="{{=it.couponId}}"
+        data-channel="{{=it.coupon_source}}" class="result-inner success normal-coupons needsclick {{? !it.useCondition }}result-inner-nobottom{{?}}">
+{{? it.logoUrl }}
+<div class="data-img">
+        <img src="{{=it.logoUrl}}">
+</div>
+<div class="fl couponname shenlue">
+<div class="result-title">{{=it.couponDisplayName}}</div>
+<div class="clearfix result-sub-container">
+{{? it.isShippingByMeiTuan }}
+    <div class="result-meituan">美团专送专享</div>
+{{?? }} {{? it.bestLuck }}
+    <div class="result-best"></div>
+{{?}} {{?}}
+<div class="result-sub-title">{{= it.amountLimit }}</div>
+</div>
+</div>
+{{?? }}
+<div class="fl couponname noshenlue">
+<div class="result-title">{{=it.couponDisplayName}}</div>
+<div class="clearfix result-sub-container">
+{{? it.isShippingByMeiTuan }}
+    <div class="result-meituan">美团专送专享</div>
+{{?? }} {{? it.bestLuck }}
+    <div class="result-best"></div>
+{{?}} {{?}}
+<div class="result-sub-title">{{= it.amountLimit }}</div>
+</div>
+</div>
+{{?}} {{? it.couponType == 1 }}
+<div class="number fr">
+    <em class="rmb">￥</em>
+<i>{{=it.couponAmountInt}}</i>
+{{? it.couponAmountFloat }}
+<i class="coupon-price-float hh">.{{=it.couponAmountFloat}}</i>
+{{?}}
+</div>
+{{??}}
+<div class="number fr">
+<i>{{=it.couponAmountInt}}</i>
+    <em class="rmb zhe">折</em>
+{{? it.couponAmountFloat }}
+<i class="coupon-price-float mm">.{{=it.couponAmountFloat}}</i>
+{{?}}
+</div>
+{{?}}
+<div class="result-bottom">
+<span class="coupons-condition">{{? it.useCondition }} {{=it.useCondition}} {{?}}</span>
+    <span class="coupons-link">去使用 ></span>
+</div>
+</div>
+</script>
+</div>
+
+<div id="rst-success-surprise" style="display: none;">
+<script data-id="card_tpl-surprise" type="text/x-dot-template">
+        <div data-type="{{=it.coupon_first_source}}"
+        data-position=2 data-configId="{{=it.couponConfigId}}" data-id="{{=it.couponId}}"
+        data-channel="{{=it.coupon_source}}" class="result-inner success  surprise-coupons {{? !it.useCondition }}result-inner-nobottom{{?}}">
+        <a {{? it.couponRedirectUrl !=n ull && it.couponRedirectUrl !="" }} href="{{=it.couponRedirectUrl}}" {{?}}>
+{{? it.logoUrl }}
+<div class="data-img">
+        <img src="{{=it.logoUrl}}">
+</div>
+<div class="fl couponname shenlue">
+<div class="result-title">{{=it.couponDisplayName}}</div>
+<div class="clearfix result-sub-container">
+{{? it.isShippingByMeiTuan }}
+    <div class="result-meituan">美团专送专享</div>
+{{?? }} {{? it.surprise }}
+    <div class="result-surprise"></div>
+{{?}} {{?}}
+<div class="result-sub-title">{{= it.amountLimit }}</div>
+</div>
+</div>
+{{?? }}
+<div class="fl couponname noshenlue">
+<div class="result-title">{{=it.couponDisplayName}}</div>
+<div class="clearfix result-sub-container">
+{{? it.isShippingByMeiTuan }}
+    <div class="result-meituan">美团专送专享</div>
+{{?? }} {{? it.surprise }}
+    <div class="result-surprise"></div>
+{{?}} {{?}}
+<div class="result-sub-title">{{= it.amountLimit }}</div>
+</div>
+</div>
+{{?}} {{? it.couponType == 1 }}
+<div class="number fr">
+    <em class="rmb">￥</em>
+<i>{{=it.couponAmountInt}}</i>
+{{? it.couponAmountFloat }}
+<i class="coupon-price-float hh">.{{=it.couponAmountFloat}}</i>
+{{?}}
+</div>
+{{??}}
+<div class="number fr">
+<i>{{=it.couponAmountInt}}</i>
+    <em class="rmb zhe">折</em>
+{{? it.couponAmountFloat }}
+<i class="coupon-price-float mm">.{{=it.couponAmountFloat}}</i>
+{{?}}
+</div>
+{{?}}
+<div class="result-bottom">
+<span class="coupons-condition">{{? it.useCondition }} {{=it.useCondition}} {{?}}</span>
+    <span class="coupons-link">去使用 ></span>
+</div>
+</a>
+</div>
+</script>
+</div>
+
+<div id="rst-success-poi" style="display: none;">
+<script data-id="card_tpl-poi" type="text/x-dot-template">
+        <div data-type="{{=it.coupon_first_source}}"
+        data-position=3 data-configId="{{=it.couponConfigId}}" data-id="{{=it.couponId}}"
+        data-channel="{{=it.coupon_source}}" class="result-inner success poi-coupons needsclick {{? !it.useCondition}} result-inner-nobottom {{?}}">
+<a style="display:none;">{{=it.couponRedirectUrl}}</a>
+{{? (it.logoUrl && it.logoUrl != "") }}
+<div class="data-img">
+        <img src="{{=it.logoUrl}}">
+</div>
+<div class="fl couponname shenlue">
+<div class="result-title">{{=it.couponDisplayName}}</div>
+<div class="clearfix result-sub-container">
+{{? (it.isShippingByMeiTuan && it.isShippingByMeiTuan==true)}}
+    <div class="result-meituan">美团专送专享</div>
+{{? }}
+<div class="result-sub-title">{{=it.amountLimit}}</div>
+</div>
+</div>
+{{?? }}
+<div class="fl couponname noshenlue">
+<div class="result-title">{{=it.couponDisplayName}}</div>
+<div class="clearfix result-sub-container">
+{{? (it.isShippingByMeiTuan && it.isShippingByMeiTuan==true) }}
+    <div class="result-meituan">美团专送专享</div>
+{{? }}
+<div class="result-sub-title">{{=it.amountLimit}}</div>
+</div>
+</div>
+{{? }}
+<div class="number fr size">
+    <em class="rmb">￥</em>
+<i class="mun">{{=it.couponAmountInt}}</i>
+{{? it.couponAmountFloat }}
+<i class="coupon-price-float hh">.{{=it.couponAmountFloat}}</i>
+{{?}}
+</div>
+<div class="result-bottom">
+<span class="coupons-condition">
+    <img class="recommand-logo"
+         src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABoAAAAaCAMAAACelLz8AAAAhFBMVEUAAACqqqqqqqqqqqqqqqqtra3m5uaqqqqqqqqpqamrq6urq6urq6utra2tra2qqqqqqqqqqqqqqqqsrKypqamqqqqpqamqqqqrq6uqqqqqqqqrq6uurq6xsbHCwsKqqqqqqqqqqqqrq6uqqqqrq6uqqqqrq6urq6uqqqqqqqqtra2pqal1Q9ROAAAAK3RSTlMArfbpXiAC79WWek0oHBfJw4VsOePbwLWggHJVLQsG39GaZ0AzuamQjElEGypGTAAAAQtJREFUKM9tkeeygjAQhTd0pBdpCkhRr/e8//u5wXHGQM6PZDPfZMtZUmQLcSG9OgAPR4tSTAZyHQlh9BYSHfLhk41SQ2IDV1px06A/CCILjyOx+ZPkpyOq0fBZIfitsS7/Ic1wI6LegKgTb/R8h5OXkEoNSCMKfNUSmXBvVQUgI9bQnaxXEdoBNzrAJJa7q+4AFOMswwTrDhkUfdAdL3V8mF8koG6jQMJo86yBpaAc0/aT5e920fC7hyvDJzoFjWzaAMgwU5sPt1xAv6H2F50wbcPGfLYKcjwsfJ0RHhIG8JzNh7xYgjtckc0BuxfZV8uE9WlTo9qRKPKrNK39ix10T5F6o1l6Yh4YvAH7yR0D4HvOOQAAAABJRU5ErkJggg=="
+    />
+<span class="recommand-msg">{{?it.recommendReason}} {{=it.recommendReason}} {{?}}</span>
+</span>
+    <span class="coupons-link">去使用 ></span>
+</div>
+</div>
+</script>
+</div>
+
+<div id="rst-success-san" style="display: none;">
+<script data-id="card_tpl-san" type="text/x-dot-template">
+        <div data-type="{{=it.coupon_first_source}}"
+        data-position=3 data-configId="{{=it.couponConfigId}}" data-id="{{=it.couponId}}"
+        data-channel="{{=it.coupon_source}}" class="result-inner success  {{? !it.useCondition }}result-inner-nobottom{{?}}">
+        <a {{? it.couponRedirectUrl !=n ull && it.couponRedirectUrl !="" }} href="{{=it.couponRedirectUrl}}" {{?}}>
+{{? it.logoUrl }}
+<div class="data-img">
+        <img src="{{=it.logoUrl}}">
+</div>
+<div class="fl couponname shenlue">
+<div class="result-title">{{=it.couponDisplayName}}</div>
+<div class="clearfix result-sub-container">
+{{? it.isShippingByMeiTuan }}
+    <div class="result-meituan">美团专送专享</div>
+{{?}}
+<div class="result-sub-title">{{= it.amountLimit }}</div>
+</div>
+</div>
+{{?? }}
+<div class="fl couponname noshenlue">
+<div class="result-title">{{=it.couponDisplayName}}</div>
+<div class="clearfix result-sub-container">
+{{? it.isShippingByMeiTuan }}
+    <div class="result-meituan">美团专送专享</div>
+{{?}}
+<div class="result-sub-title">{{= it.amountLimit }}</div>
+</div>
+</div>
+{{?}} {{? it.couponType == 1 }}
+<div class="number fr">
+    <em class="rmb">￥</em>
+<i>{{=it.couponAmountInt}}</i>
+{{? it.couponAmountFloat }}
+<i class="coupon-price-float hh">.{{=it.couponAmountFloat}}</i>
+{{?}}
+</div>
+{{??}}
+<div class="number fr">
+<i>{{=it.couponAmountInt}}</i>
+    <em class="rmb zhe">折</em>
+{{? it.couponAmountFloat }}
+<i class="coupon-price-float mm">.{{=it.couponAmountFloat}}</i>
+{{?}}
+</div>
+{{?}}
+<div class="result-bottom">
+{{? it.couponRedirectUrl != null && it.couponRedirectUrl != ""}}
+<span class="coupons-condition">
+{{?it.useCondition }} {{=it.useCondition}} {{?}}
+</span>
+    <span class="coupons-link">去使用 ></span>
+{{??}}
+<span>
+{{? it.useCondition }} {{=it.useCondition}} {{?}}
+</span>
+{{?}}
+</div>
+</a>
+</div>
+</script>
+</div>
+
+<div id="rst-success-outCompany" style="display: none;">
+<script data-id="card_tpl-outCompany" type="text/x-dot-template">
+        <div data-type="{{=it.coupon_first_source}}"
+        data-position=4 data-configId="{{=it.couponConfigId}}" data-id="{{=it.couponId}}"
+        data-channel="{{=it.coupon_source}}" class="result-inner success out-company {{? !it.useCondition }}result-inner-nobottom{{?}}">
+        <a {{? it.couponRedirectUrl !=n ull && it.couponRedirectUrl !="" }} href="{{=it.couponRedirectUrl}}" {{?}}>
+{{? it.logoUrl }}
+<div class="data-img">
+        <img src="{{=it.logoUrl}}">
+</div>
+<div class="fl couponname shenlue">
+<div class="result-title">{{=it.couponDisplayName}}</div>
+<div class="clearfix result-sub-container">
+{{? it.isShippingByMeiTuan }}
+    <div class="result-meituan">美团专送专享</div>
+{{?}}
+<div class="result-sub-title">{{= it.amountLimit }}</div>
+</div>
+</div>
+{{?? }}
+<div class="fl couponname noshenlue">
+<div class="result-title">{{=it.couponDisplayName}}</div>
+<div class="clearfix result-sub-container">
+{{? it.isShippingByMeiTuan }}
+    <div class="result-meituan">美团专送专享</div>
+{{?}}
+<div class="result-sub-title">{{= it.amountLimit }}</div>
+</div>
+</div>
+{{?}} {{? it.couponType == 1 }}
+<div class="number fr">
+    <em class="rmb">￥</em>
+<i>{{=it.couponAmountInt}}</i>
+{{? it.couponAmountFloat }}
+<i class="coupon-price-float hh">.{{=it.couponAmountFloat}}</i>
+{{?}}
+</div>
+{{??}}
+<div class="number fr">
+<i>{{=it.couponAmountInt}}</i>
+    <em class="rmb zhe">折</em>
+{{? it.couponAmountFloat }}
+<i class="coupon-price-float mm">.{{=it.couponAmountFloat}}</i>
+{{?}}
+</div>
+{{?}}
+<div class="result-bottom">
+{{? it.couponRedirectUrl != null && it.couponRedirectUrl != ""}}
+<span class="coupons-condition">
+{{?it.useCondition }} {{=it.useCondition}} {{?}}
+</span>
+    <span class="coupons-link">去使用 ></span>
+{{??}}
+<span>
+{{? it.useCondition }} {{=it.useCondition}} {{?}}
+</span>
+{{?}}
+</div>
+</a>
+</div>
+</script>
+</div>
+
+    <div id="rst-getted" style="display: none;">
+        <div class="result-inner result-gray">
+            <span class='err-msg'>已领取</span>
+        </div>
+    </div>
+<div id="rst-notopen" style="display: none;">
+<script data-id="card_tpl" type="text/x-dot-template">
+<div class="result-inner result-gray">
+<span class='err-msg'>{{=it.msg}}</span>
+</div>
+</script>
+    <span></span>
+</div>
+
+<div id="rst-error" style="display: none;">
+<script data-id="card_tpl" type="text/x-dot-template">
+<div class="result-inner result-gray">
+        <span class="err-msg {{? it.msg.length<=3 }}err-short-msg{{?}}">{{=it.msg}}</span>
+    <p id="geo-location-btn" class="geo-location red needsclick" style="display: none"> 不在这里？重新定位> </p>
+</div>
+</script>
+    <span></span>
+</div>
+</div>
+    <div class="result" id="rst-success">
+        <div class="other"></div>
+        <div class="surprise"></div>
+        <div class="poi"></div>
+        <div class="third"></div>
+        <div class="outCompany"></div>
+
+    </div>
+
+    <div id="rst-success-tip" class="info margin-gap" style="display: none">
+        <span class="user-tip">红包已放入账号:</span>
+        <span class="user-phone" style="color:#341e00;"></span>
+        <span class="red"> 修改></span>
+    </div>
+
+    <div class="btns-section"></div>
+</section>
+<div class="content3 content-bg margin-gap" style="display: block;">
+<section id="friend_luck_list" style="display: none;">
+<div id="friend_list">
+    <h4 class="sec-sub-title">看看大家手气</h4>
+    <ul class="comment_ul">
+    </ul>
+<script data-id="card_tpl" type="text/x-dot-template">
+<li class="comment_li clearfix">
+        <img class="comment_usr_pic"
+             src="https://xs01.meituan.net/waimai_c_activity_web/img/page/fetchcoupon/defualt.2f65f7f3.jpg"
+        data-src-retina="{{= it.head_img_url}}" alt="" />
+<div class="fl comment_fl">
+<div class="comment_usr_name">{{=it.nick_name}}</div>
+<div class="comment_usr_status">{{=it.dateStr}}</div>
+</div>
+<div class="fr comment_best">
+<div class="comment_amount">{{=it.coupon_price}}元</div>
+{{? it.bestLuck==true }}
+    <div class="comment_amount_best"></div>
+{{?}}
+</div>
+</li>
+</script>
+</div>
+</section>
+
+    <section class="rule">
+        <h4 class="sec-sub-title">活动规则</h4>
+        <ul class="act-rules"></ul>
+    </section>
+</div>
+</div>
+<div class="dialog" style="display: none;">
+    <div class="surprise-dialog result">
+        <div class="bg-light"></div>
+        <div class="dialog-main">
+            <div class="dialog-bg">
+                <div class="coupon-surprise"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+<script id="/static/js/lib/jweixin-1.0.0.js"></script>
+<script>
+    lsloader.load('/static/js/lib/jweixin-1.0.0.js',
+            'https://xs01.meituan.net/waimai_c_activity_web/js/lib/jweixin-1.0.0.ff20affe.js');
+</script>
+<textarea style="display:none" id="ls-loader-inlinecode3">
+    /* * 注意： * 1. 所有的JS接口只能在公众号绑定的域名下调用，公众号开发者需要先登录微信公众平台进入“公众号设置”的“功能设置”里填写“JS接口安全域名”。 * 2. 如果发现在 Android 不能分享自定义内容，请到官网下载最新的包覆盖安装，Android
+    自定义分享接口需升级至 6.0.2.58 版本及以上。 */ window.wx && wx.config({ beta: true, //注入wx.invoke和wx.on方法。wx.invoke用于调用未开放的由页面主动调用的JS接口，wx.on用于调用未开放的监听类JS接口。
+    debug: false, appId: 'wxb2650147bb2ca820', timestamp: 1512209610, nonceStr: 'a0a92586-644a-40d4-bf14-f35da4aae080', signature:
+    '007ec1f4874de3e0a30ae40bf17d142737fac76f', jsApiList: [ 'onMenuShareTimeline', 'onMenuShareAppMessage', 'launch3rdApp'
+    //在微信内置浏览器中被访问的网页，可使用该JS代码启动当前设备已安装的app。 ] });
+  </textarea>
+<script id="ls-loader-inlinerun3"></script>
+<script>
+    lsloader.runInlineScript('ls-loader-inlinerun3', 'ls-loader-inlinecode3');
+</script>
+<script id="/static/js/lib/wm_lib.js"></script>
+<script>
+    lsloader.load('/static/js/lib/wm_lib.js',
+            'https://xs01.meituan.net/waimai_c_activity_web/js/lib/wm_lib.c5811d6e.js');
+</script>
+
+<textarea style="display:none" id="ls-loader-inlinecode1">require.config({ baseUrl:
+    "https://xs01.meituan.net/waimai_c_activity_web/5a1e5313/js", shim: { 'zepto': { exports: 'Zepto'
+    }, 'jquery': { exports: 'Zepto' } }, paths: { 'zepto': 'fe_common/lib/zepto', 'jquery': 'fe_common/lib/zepto' } });
+</textarea>
+<script id="ls-loader-inlinerun1"></script>
+<script>
+    lsloader.runInlineScript('ls-loader-inlinerun1', 'ls-loader-inlinecode1');
+</script>
+<script type="text/javascript" src="https://3gimg.qq.com/lightmap/components/geolocation/geolocation.min.js"></script>
+<textarea style="display:none" id="ls-loader-inlinecode2">
+    /**** * 人机识别token, 每个页面token不同，需要传入 * */ var rohrdata = ""; var Rohr_Opt = Object.create(null); Rohr_Opt.Flag = 100028; Rohr_Opt.LogVal
+    = "rohrdata";
+  </textarea>
+<script id="ls-loader-inlinerun2"></script>
+<script>
+    lsloader.runInlineScript('ls-loader-inlinerun2', 'ls-loader-inlinecode2');
+</script>
+<script id="/static/js/lib/rohr.min.js"></script>
+<script>
+    lsloader.load('/static/js/lib/rohr.min.js',
+            'https://xs01.meituan.net/waimai_c_activity_web/js/lib/rohr.min.dda546e6.js');
+</script>
+
+<script id="/static/js/page/activity/shareCouponSeed.js"></script>
+<script>
+    lsloader.load('/static/js/page/activity/shareCouponSeed.js',
+            'https://xs01.meituan.net/waimai_c_activity_web/js/page/activity/shareCouponSeed.4c98e51d.js');
+</script>
+
+<textarea style="display:none" id="ls-loader-inlinecode5">
+
+    require(['page/activity/shareCouponSeed'], function (pageSeed) { pageSeed.init({ channelUrlKey: "B2EA8E1ABA8B47EA82DB475BA17B517D",
+    url_type: "sharechannel", share_info_share_url: "https://activity.waimai.meituan.com/coupon/sharechannel/B2EA8E1ABA8B47EA82DB475BA17B517D?urlKey=3B43C0B578A94138B4449D6D9EE9B028&from=singlemessage"
+    }); });
+
+  </textarea>
+<script id="ls-loader-inlinerun5"></script>
+<script>
+    lsloader.runInlineScript("ls-loader-inlinerun5", "ls-loader-inlinecode5")
+</script>
+
+</body>
+
+</html>
