@@ -9,6 +9,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+	"yx.com/meituan-luck/common"
 )
 
 var cfgFile string
@@ -44,4 +45,5 @@ func initConfig() {
 	if err := viper.ReadInConfig(); err == nil {
 		fmt.Println("Using config file:", viper.ConfigFileUsed())
 	}
+	common.PrepareLog()
 }

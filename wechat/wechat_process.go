@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"regexp"
 	"strings"
+	"yx.com/meituan-luck/common"
 )
 
 func (w *Wechat) MsgProcessDaemon(msgIn chan Message) {
@@ -14,7 +15,7 @@ func (w *Wechat) MsgProcessDaemon(msgIn chan Message) {
 	for {
 		select {
 		case msg = <-msgIn:
-			w.LogInfo.Printf("%v", msg)
+			common.Log.INFO.Printf("%v", msg)
 			switch msg.MsgType {
 			case 49:
 				//链接
@@ -29,7 +30,7 @@ func (w *Wechat) MsgProcessDaemon(msgIn chan Message) {
 					url = strings.Replace(url, "[channel]", channel, -1)
 					url = strings.Replace(url, "[urlKey]", urlKey, -1)
 					go http.Get(url)
-					w.LogInfo.Println("回调:" + url)
+					common.Log.INFO.Println("回调:" + url)
 				}
 			default:
 

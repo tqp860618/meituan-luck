@@ -2,20 +2,242 @@ package wechat
 
 import (
 	"bytes"
+	"crypto/tls"
 	"encoding/json"
 	"encoding/xml"
 	"errors"
 	"fmt"
+	"github.com/Baozisoftware/qrcode-terminal-go"
 	"io"
 	"io/ioutil"
 	"math/rand"
 	"net/http"
+	"net/http/cookiejar"
 	"net/url"
+	"os"
+	"path"
 	"regexp"
 	"strconv"
 	"strings"
 	"time"
+	"yx.com/meituan-luck/common"
 )
+
+func NewWechat() *Wechat {
+	jar, err := cookiejar.New(nil)
+	if err != nil {
+		return nil
+	}
+
+	root, err := os.Getwd()
+	transport := *(http.DefaultTransport.(*http.Transport))
+	transport.ResponseHeaderTimeout = 1 * time.Minute
+	transport.TLSClientConfig = &tls.Config{
+		InsecureSkipVerify: true,
+	}
+
+	return &Wechat{
+		Debug:         true,
+		DeviceId:      "e123456789002237",
+		AutoReplyMode: false,
+		Interactive:   false,
+		AutoOpen:      false,
+		MediaCount:    -1,
+		Client: &http.Client{
+			Transport: &transport,
+			Jar:       jar,
+			Timeout:   1 * time.Minute,
+		},
+		Request:    new(BaseRequest),
+		Root:       root,
+		SaveFolder: path.Join(root, "saved"),
+		MemberMap:  make(map[string]Member),
+	}
+
+}
+
+func (w *Wechat) WaitForLogin() (err error) {
+
+	err = w.GetUUID()
+	if err != nil {
+		err = fmt.Errorf("get the uuid failed with error:%v", err)
+	}
+	err = w.GetQR()
+	if err != nil {
+		err = fmt.Errorf("创建二维码失败:%s", err.Error())
+	}
+	common.Log.INFO.Printf("扫描二维码登陆....")
+	code, tip := "", 1
+	for code != "200" {
+		w.RedirectedUri, code, tip, err = w.waitToLogin(w.Uuid, tip)
+		if err != nil {
+			err = fmt.Errorf("二维码登陆失败：%s", err.Error())
+			return
+		}
+	}
+	return
+}
+
+func (w *Wechat) waitToLogin(uuid string, tip int) (redirectUri, code string, rt int, err error) {
+	loginUri := fmt.Sprintf("https://login.weixin.qq.com/cgi-bin/mmwebwx-bin/login?tip=%d&uuid=%s&_=%s", tip, uuid, time.Now().Unix())
+	rt = tip
+	resp, err := w.Client.Get(loginUri)
+	if err != nil {
+		return
+	}
+	defer resp.Body.Close()
+	data, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return
+	}
+	re := regexp.MustCompile(`window.code=(\d+);`)
+	pm := re.FindStringSubmatch(string(data))
+
+	if len(pm) != 0 {
+		code = pm[1]
+
+	} else {
+		err = errors.New("can't find the code")
+		return
+	}
+	rt = 0
+	switch code {
+	case "201":
+		common.Log.INFO.Printf("扫描成功，请在手机上点击确认登陆")
+	case "200":
+		reRedirect := regexp.MustCompile(`window.redirect_uri="(\S+?)"`)
+		pmSub := reRedirect.FindStringSubmatch(string(data))
+
+		if len(pmSub) != 0 {
+			redirectUri = pmSub[1]
+		} else {
+			err = errors.New("regex error in window.redirect_uri")
+			return
+		}
+		redirectUri += "&fun=new"
+	case "408":
+	case "0":
+		err = errors.New("超时了，请重启程序")
+	default:
+		err = errors.New("其它错误，请重启")
+
+	}
+	return
+}
+
+func (w *Wechat) GetQR() (err error) {
+	if w.Uuid == "" {
+		err = errors.New("no this uuid")
+		return
+	}
+	qrcodeTerminal.New().Get(QrContentUrl + w.Uuid).Print()
+	return
+}
+
+func (w *Wechat) SetSynKey() {
+
+}
+
+func (w *Wechat) AutoReplyMsg() string {
+	if w.AutoReplySrc {
+		return "" //not enabled
+	} else {
+		if len(w.ReplyMsgs) == 0 {
+			return "未设置"
+		}
+		return w.ReplyMsgs[0]
+	}
+
+}
+
+func (w *Wechat) GetUUID() (err error) {
+	params := url.Values{}
+	params.Set("appid", AppID)
+	params.Set("fun", "new")
+	params.Set("lang", "zh_CN")
+	params.Set("_", strconv.FormatInt(time.Now().Unix(), 10))
+	datas := w.Post(LoginUrl, params, false)
+
+	re := regexp.MustCompile(`window.QRLogin.code = (\d+); window.QRLogin.uuid = "(\S+?)"`)
+	pm := re.FindStringSubmatch(string(datas))
+	//common.Log.WARN.Printf("%v", pm)
+	if len(pm) > 0 {
+		code := pm[1]
+		if code != "200" {
+			err = errors.New("the status error")
+		} else {
+			w.Uuid = pm[2]
+		}
+		return
+	} else {
+		err = errors.New("get uuid failed")
+		return
+	}
+}
+
+func (w *Wechat) Login() (err error) {
+	common.Log.DEBUG.Printf("the redirectedUri:%v", w.RedirectedUri)
+
+	resp, err := w.Client.Get(w.RedirectedUri)
+	if err != nil {
+		return
+	}
+	defer resp.Body.Close()
+	reader := resp.Body.(io.Reader)
+	if err = xml.NewDecoder(reader).Decode(w.Request); err != nil {
+		return
+	}
+	if w.Request.Ret != 0 {
+		err = errors.New(w.Request.Message)
+		return
+	}
+
+	w.Request.DeviceID = w.DeviceId
+
+	data, err := json.Marshal(Request{
+		BaseRequest: w.Request,
+	})
+	if err != nil {
+		return
+	}
+
+	name := "webwxinit"
+	newResp := new(InitResp)
+
+	index := strings.LastIndex(w.RedirectedUri, "/")
+	if index == -1 {
+		index = len(w.RedirectedUri)
+	}
+	w.BaseUri = w.RedirectedUri[:index]
+
+	apiUri := fmt.Sprintf("%s/%s?pass_ticket=%s&skey=%s&r=%d", w.BaseUri, name, w.Request.PassTicket, w.Request.Skey, int(time.Now().Unix()))
+	if err = w.Send(apiUri, bytes.NewReader(data), newResp); err != nil {
+		return
+	}
+	common.Log.DEBUG.Printf("the newResp:%#v", newResp)
+	for _, contact := range newResp.ContactList {
+		w.InitContactList = append(w.InitContactList, contact)
+		// fixme 在此将初始化的记录加入到聊天人列表
+	}
+
+	w.ChatSet = strings.Split(newResp.ChatSet, ",")
+	w.User = newResp.User
+	w.SyncKey = newResp.SyncKey
+	w.SyncKeyStr = ""
+	for i, item := range w.SyncKey.List {
+
+		if i == 0 {
+			w.SyncKeyStr = strconv.Itoa(item.Key) + "_" + strconv.Itoa(item.Val)
+			continue
+		}
+
+		w.SyncKeyStr += "|" + strconv.Itoa(item.Key) + "_" + strconv.Itoa(item.Val)
+
+	}
+	common.Log.DEBUG.Printf("the response:%+v\n", newResp)
+	common.Log.DEBUG.Printf("the sync key is %s\n", w.SyncKeyStr)
+	return
+}
 
 func (w *Wechat) GetContacts() (err error) {
 
@@ -95,11 +317,11 @@ func (w *Wechat) getSyncMsg() (msgs []interface{}, err error) {
 	}
 	data, err := json.Marshal(params)
 
-	w.LogDebug.Printf(urlRequest)
-	w.LogDebug.Printf(string(data))
+	common.Log.DEBUG.Printf(urlRequest)
+	common.Log.DEBUG.Printf(string(data))
 
 	if err := w.Send(urlRequest, bytes.NewReader(data), syncResp); err != nil {
-		w.LogInfo.Printf("w.Send(%s,%s,%+v) with error:%v", urlRequest, string(data), syncResp, err)
+		common.Log.INFO.Printf("w.Send(%s,%s,%+v) with error:%v", urlRequest, string(data), syncResp, err)
 		return nil, err
 	}
 	if syncResp.BaseResponse.Ret == 0 {
@@ -124,14 +346,14 @@ func (w *Wechat) SyncDaemon(msgIn chan Message) {
 		w.lastCheckTs = time.Now()
 		resp, err := w.SyncCheck()
 		if err != nil {
-			w.LogWarn.Printf("w.SyncCheck() with error:%+v\n", err)
+			common.Log.WARN.Printf("w.SyncCheck() with error:%+v\n", err)
 			continue
 		}
 		switch resp.RetCode {
 		case 1100:
-			w.LogWarn.Printf("从微信上登出")
+			common.Log.WARN.Printf("从微信上登出")
 		case 1101:
-			w.LogError.Fatalln("从其他设备上登陆")
+			common.Log.ERROR.Fatalln("从其他设备上登陆")
 			break
 		case 0:
 			switch resp.Selector {
@@ -139,7 +361,7 @@ func (w *Wechat) SyncDaemon(msgIn chan Message) {
 				msgs, err := w.getSyncMsg()
 
 				if err != nil {
-					w.LogError.Printf("w.getSyncMsg() error:%+v\n", err)
+					common.Log.ERROR.Printf("w.getSyncMsg() error:%+v\n", err)
 				}
 
 				for _, m := range msgs {
@@ -199,7 +421,7 @@ func (w *Wechat) SyncDaemon(msgIn chan Message) {
 						msgLink := MessageLink{}
 						err := xml.Unmarshal([]byte(msg.Content), &msgLink)
 						if err != nil {
-							w.LogError.Printf("%v", err)
+							common.Log.ERROR.Printf("%v", err)
 						}
 						msg.Content = msgLink.Title
 						msg.Url = msgLink.Url
@@ -220,14 +442,14 @@ func (w *Wechat) SyncDaemon(msgIn chan Message) {
 			case 4: //通讯录更新
 				w.GetContacts()
 			case 6: //可能是红包
-				w.LogInfo.Printf("请速去手机抢红包")
+				common.Log.INFO.Printf("请速去手机抢红包")
 			case 7:
-				w.LogInfo.Printf("在手机上操作了微信")
+				common.Log.INFO.Printf("在手机上操作了微信")
 			case 0:
-				w.LogInfo.Printf("消息:无事件")
+				common.Log.INFO.Printf("消息:无事件")
 			}
 		default:
-			w.LogDebug.Printf("the resp:%+v", resp)
+			common.Log.DEBUG.Printf("the resp:%+v", resp)
 			time.Sleep(time.Second * 4)
 
 			continue
@@ -246,10 +468,10 @@ func (w *Wechat) MsgDaemon(msgOut chan MessageOut, autoReply chan int) {
 	for {
 		select {
 		case msg = <-msgOut:
-			w.LogInfo.Printf("the msg to send %+v", msg)
+			common.Log.INFO.Printf("the msg to send %+v", msg)
 			w.SendMsg(msg.ToUserName, msg.Content, false)
 		case autoMode = <-autoReply:
-			w.LogInfo.Printf("the autoreply mode:", autoMode)
+			common.Log.INFO.Printf("the autoreply mode:", autoMode)
 			if autoMode == 1 {
 				w.AutoReply = true
 			} else if autoMode == 0 {
@@ -311,11 +533,11 @@ func (w *Wechat) SyncCheck() (resp SyncCheckResp, err error) {
 		return
 	}
 	Url.RawQuery = params.Encode()
-	//w.LogInfo.Printf(Url.String())
+	//common.Log.INFO.Printf(Url.String())
 
 	ret, err := w.Client.Get(Url.String())
 	if err != nil {
-		w.LogError.Printf("the error is :%+v", err)
+		common.Log.ERROR.Printf("the error is :%+v", err)
 		return
 	}
 	defer ret.Body.Close()
@@ -325,15 +547,15 @@ func (w *Wechat) SyncCheck() (resp SyncCheckResp, err error) {
 	if err != nil {
 		return
 	}
-	w.LogDebug.Printf(string(body))
+	common.Log.DEBUG.Printf(string(body))
 	resp = SyncCheckResp{}
 	reRedirect := regexp.MustCompile(`window.synccheck={retcode:"(\d+)",selector:"(\d+)"}`)
 	pmSub := reRedirect.FindStringSubmatch(string(body))
-	w.LogDebug.Printf("the data:%+v", pmSub)
+	common.Log.DEBUG.Printf("the data:%+v", pmSub)
 	if len(pmSub) != 0 {
 		resp.RetCode, err = strconv.Atoi(pmSub[1])
 		resp.Selector, err = strconv.Atoi(pmSub[2])
-		w.LogDebug.Printf("the resp:%+v", resp)
+		common.Log.DEBUG.Printf("the resp:%+v", resp)
 
 	} else {
 		err = errors.New("regex error in window.redirect_uri")
@@ -359,10 +581,10 @@ func (w *Wechat) SendMsg(toUserName, message string, isFile bool) (err error) {
 	params["Msg"] = msg
 	data, err := json.Marshal(params)
 	if err != nil {
-		w.LogInfo.Printf("json.Marshal(%v):%v\n", params, err)
+		common.Log.INFO.Printf("json.Marshal(%v):%v\n", params, err)
 	}
 	if err := w.Send(apiUrl, bytes.NewReader(data), resp); err != nil {
-		w.LogWarn.Printf("w.Send(%s,%v):%v", apiUrl, string(data), err)
+		common.Log.WARN.Printf("w.Send(%s,%v):%v", apiUrl, string(data), err)
 	}
 
 	return
@@ -438,11 +660,11 @@ func (w *Wechat) Send(apiURI string, body io.Reader, call Caller) (err error) {
 	reader := resp.Body.(io.Reader)
 
 	if err = json.NewDecoder(reader).Decode(call); err != nil {
-		w.LogWarn.Printf("the error:%+v", err)
+		common.Log.WARN.Printf("the error:%+v", err)
 		return
 	}
 	if !call.IsSuccess() {
-		w.LogInfo.Println(call)
+		common.Log.INFO.Println(call)
 		return call.Error()
 	}
 	return
@@ -469,10 +691,10 @@ func (w *Wechat) SendTest(apiURI string, body io.Reader, call Caller) (err error
 	reader := resp.Body.(io.Reader)
 
 	respBody, err := ioutil.ReadAll(reader)
-	w.LogInfo.Printf("the respBody:%s", string(respBody))
+	common.Log.INFO.Printf("the respBody:%s", string(respBody))
 
 	if err = json.NewDecoder(reader).Decode(call); err != nil {
-		w.LogInfo.Printf("the error:%+v", err)
+		common.Log.INFO.Printf("the error:%+v", err)
 		return
 	}
 	if !call.IsSuccess() {
