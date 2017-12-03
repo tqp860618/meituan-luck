@@ -4,3 +4,4 @@ package main
 // todo	抢红包时抢到的面额、有效期
 // todo 向微信发送图片、发送链接
 // todo 日志分离到配置
+// todo watch 进程 观察所有的数据情况，使用terminal UI
