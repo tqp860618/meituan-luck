@@ -5,13 +5,12 @@ package cmd
 
 import (
 	"github.com/spf13/cobra"
-	"path"
-	"io/ioutil"
-	"encoding/json"
+	jww "github.com/spf13/jwalterweatherman"
+	"github.com/spf13/viper"
 	"log"
 	"os"
+	"path"
 	WeChat "yx.com/meituan-luck/wechat"
-	jww "github.com/spf13/jwalterweatherman"
 )
 
 var weixinCmd = &cobra.Command{
@@ -31,20 +30,11 @@ const (
 	maxChanSize = 50
 )
 
-type Config struct {
-	SaveToFile   bool     `json:"save_to_file"`
-	AutoReply    bool     `json:"auto_reply"`
-	AutoReplySrc bool     `json:"auto_reply_src"`
-	ReplyMsg     []string `json:"reply_msg"`
-	MTAutoTouch  string   `json:"mt_auto_touch"`
-}
-
 func msgProcess() {
 	var logFile *os.File
 	defer logFile.Close()
 	err, wxNotepad := getWXLogger(logFile)
 	LogError := wxNotepad.ERROR
-	LogDebug := wxNotepad.DEBUG
 	LogInfo := wxNotepad.INFO
 
 	LogInfo.Print("启动...")
@@ -65,26 +55,16 @@ func msgProcess() {
 		return
 	}
 
-	b, err := ioutil.ReadFile(configFile)
-	if err != nil {
-		LogError.Printf("读取文件失败：%#v", err)
-		return
-	}
-	var config *Config
-	err = json.Unmarshal(b, &config)
-
 	LogInfo.Printf("登陆...\n")
 
-	wechat.AutoReplyMode = config.AutoReply
-	wechat.ReplyMsgs = config.ReplyMsg
-	wechat.AutoReplySrc = config.AutoReplySrc
-	wechat.Meituan.MTAutoTouch = config.MTAutoTouch
+	wechat.AutoReplyMode = viper.GetBool("weixin_server.auto_reply")
+	wechat.ReplyMsgs = viper.GetStringSlice("weixin_server.reply_msg")
+	wechat.AutoReplySrc = viper.GetBool("weixin_server.auto_reply_src")
 
 	if err := wechat.Login(); err != nil {
 		LogInfo.Printf("登陆失败：%v\n", err)
 		return
 	}
-	LogDebug.Printf("配置文件:%+v\n", config)
 
 	LogInfo.Print("成功!")
 
@@ -116,7 +96,7 @@ func msgProcess() {
 	WeChat.SystemLoop()
 }
 func getWXLogger(logFile *os.File) (error, *jww.Notepad) {
-	fileName := "log.txt"
+	fileName := viper.GetString("weixin_server.log_file")
 	logFile, err := os.OpenFile(fileName, os.O_CREATE|os.O_APPEND|os.O_RDWR, 0666)
 	wxNotepad := jww.NewNotepad(jww.LevelInfo, jww.LevelDebug, os.Stdout, logFile, "wechat", log.Ldate|log.Ltime)
 	return err, wxNotepad

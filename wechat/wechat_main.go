@@ -7,8 +7,12 @@ import (
 	"encoding/xml"
 	"errors"
 	"fmt"
+	"github.com/Baozisoftware/qrcode-terminal-go"
+	jww "github.com/spf13/jwalterweatherman"
+	"github.com/tuotoo/qrcode"
 	"io"
 	"io/ioutil"
+	"log"
 	"net/http"
 	"net/http/cookiejar"
 	"net/url"
@@ -19,10 +23,6 @@ import (
 	"strconv"
 	"strings"
 	"time"
-	"github.com/tuotoo/qrcode"
-	"github.com/Baozisoftware/qrcode-terminal-go"
-	jww "github.com/spf13/jwalterweatherman"
-	"log"
 )
 
 const (
@@ -32,10 +32,10 @@ const (
 var (
 	SaveSubFolders = map[string]string{"webwxgeticon": "icons",
 		"webwxgetheadimg": "headimgs",
-		"webwxgetmsgimg": "msgimgs",
-		"webwxgetvideo": "videos",
-		"webwxgetvoice": "voices",
-		"_showQRCodeImg": "qrcodes",
+		"webwxgetmsgimg":  "msgimgs",
+		"webwxgetvideo":   "videos",
+		"webwxgetvoice":   "voices",
+		"_showQRCodeImg":  "qrcodes",
 	}
 	AppID        = "wx782c26e4c19acffb"
 	Lang         = "zh_CN"
@@ -46,10 +46,6 @@ var (
 	APIKEY       = "391ad66ebad2477b908dce8e79f101e7"
 	TUringUserId = "abc123"
 )
-
-type Meituan struct {
-	MTAutoTouch string
-}
 
 type Wechat struct {
 	User            User
@@ -98,7 +94,6 @@ type Wechat struct {
 	ReplyMsgs    []string // 回复的消息列表
 	AutoReplySrc bool     //默认false,自动回复，列表。true调用AI机器人。
 	lastCheckTs  time.Time
-	Meituan      Meituan
 }
 
 func NewWechat(notepad *jww.Notepad) *Wechat {
@@ -129,7 +124,7 @@ func NewWechat(notepad *jww.Notepad) *Wechat {
 		Request:     new(BaseRequest),
 		Root:        root,
 		SaveFolder:  path.Join(root, "saved"),
-		QrImagePath: filepath.Join(root, "qr.jpg"),
+		QrImagePath: filepath.Join(root, "storage/tmp/qr.jpg"),
 		LogError:    notepad.ERROR,
 		LogWarn:     notepad.WARN,
 		LogInfo:     notepad.INFO,
@@ -223,6 +218,7 @@ func (w *Wechat) GetQR() (err error) {
 	}
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	req.Header.Set("Cache-Control", "no-cache")
+	req.Header.Set("UserAgent", UserAgent)
 	resp, err := w.Client.Do(req)
 	if err != nil {
 		return

@@ -1,15 +1,16 @@
 package wechat
 
 import (
-	"regexp"
-	"net/http"
-	"strings"
 	"github.com/spf13/cast"
+	"github.com/spf13/viper"
+	"net/http"
+	"regexp"
+	"strings"
 )
 
 func (w *Wechat) MsgProcessDaemon(msgIn chan Message) {
 	msg := Message{}
-	reMeituanUrl := regexp.MustCompile(`activity\.waimai\.meituan\.com\/coupon\/sharechannel\/([\w\d]+)\?urlKey=([\w\d]+)`)
+	reMeituanUrl := regexp.MustCompile(`activity\.waimai\.meituan\.com/coupon/sharechannel/([\w\d]+)\?urlKey=([\w\d]+)`)
 	for {
 		select {
 		case msg = <-msgIn:
@@ -22,7 +23,8 @@ func (w *Wechat) MsgProcessDaemon(msgIn chan Message) {
 				if len(pm) != 0 {
 					channel := pm[1]
 					urlKey := pm[2]
-					url := strings.Replace(w.Meituan.MTAutoTouch, "[fromType]", cast.ToString(msg.MsgType), -1)
+					urlTmp := viper.GetString("weixin_server.meituan_luck_server")
+					url := strings.Replace(urlTmp, "[fromType]", cast.ToString(msg.MsgType), -1)
 					url = strings.Replace(url, "[fromUid]", msg.FromUserName, -1)
 					url = strings.Replace(url, "[channel]", channel, -1)
 					url = strings.Replace(url, "[urlKey]", urlKey, -1)

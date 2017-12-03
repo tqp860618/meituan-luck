@@ -3,6 +3,7 @@ package wechat
 import (
 	"bytes"
 	"encoding/json"
+	"encoding/xml"
 	"errors"
 	"fmt"
 	"io"
@@ -14,7 +15,6 @@ import (
 	"strconv"
 	"strings"
 	"time"
-	"encoding/xml"
 )
 
 func (w *Wechat) GetContacts() (err error) {
@@ -74,7 +74,7 @@ func (w *Wechat) getWechatRoomMember(roomID, userId string) (roomName, userName 
 	params["BaseRequest"] = *w.Request
 	params["Count"] = 1
 	params["List"] = []map[string]string{}
-	l := []map[string]string{}
+	var l []map[string]string
 	params["List"] = append(l, map[string]string{
 		"UserName":   roomID,
 		"ChatRoomId": "",
@@ -87,7 +87,7 @@ func (w *Wechat) getWechatRoomMember(roomID, userId string) (roomName, userName 
 func (w *Wechat) getSyncMsg() (msgs []interface{}, err error) {
 	name := "webwxsync"
 	syncResp := new(SyncResp)
-	url := fmt.Sprintf("%s/%s?sid=%s&pass_ticket=%s&skey=%s", w.BaseUri, name, w.Request.Wxsid, w.Request.PassTicket, w.Request.Skey)
+	urlRequest := fmt.Sprintf("%s/%s?sid=%s&pass_ticket=%s&skey=%s", w.BaseUri, name, w.Request.Wxsid, w.Request.PassTicket, w.Request.Skey)
 	params := SyncParams{
 		BaseRequest: *w.Request,
 		SyncKey:     w.SyncKey,
@@ -95,11 +95,11 @@ func (w *Wechat) getSyncMsg() (msgs []interface{}, err error) {
 	}
 	data, err := json.Marshal(params)
 
-	w.LogDebug.Printf(url)
+	w.LogDebug.Printf(urlRequest)
 	w.LogDebug.Printf(string(data))
 
-	if err := w.Send(url, bytes.NewReader(data), syncResp); err != nil {
-		w.LogInfo.Printf("w.Send(%s,%s,%+v) with error:%v", url, string(data), syncResp, err)
+	if err := w.Send(urlRequest, bytes.NewReader(data), syncResp); err != nil {
+		w.LogInfo.Printf("w.Send(%s,%s,%+v) with error:%v", urlRequest, string(data), syncResp, err)
 		return nil, err
 	}
 	if syncResp.BaseResponse.Ret == 0 {
@@ -428,6 +428,7 @@ func (w *Wechat) Send(apiURI string, body io.Reader, call Caller) (err error) {
 	}
 
 	req.Header.Set("Content-Type", "application/json; charset=UTF-8")
+	req.Header.Set("UserAgent", UserAgent)
 	resp, err := w.Client.Do(req)
 	if err != nil {
 		return

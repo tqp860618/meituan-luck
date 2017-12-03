@@ -6,11 +6,11 @@ package cmd
 import (
 	"fmt"
 
-	"github.com/spf13/cobra"
 	"github.com/gorilla/mux"
+	"github.com/spf13/cobra"
 	"io"
-	"net/http"
 	"log"
+	"net/http"
 	url2 "net/url"
 )
 
@@ -32,6 +32,8 @@ func luckProcess() {
 }
 
 func msgServer(res http.ResponseWriter, req *http.Request) {
+	isFromUser := true
+
 	params := mux.Vars(req)
 	msgType := params["msgType"]
 	fromUid := params["fromUid"]
@@ -39,8 +41,18 @@ func msgServer(res http.ResponseWriter, req *http.Request) {
 	urlKey := params["urlKey"]
 	fmt.Printf("callback %s\t%s\t%s\t%s", msgType, fromUid, channel, urlKey)
 	io.WriteString(res, fmt.Sprintf("callback %s\t%s\t%s\t%s", msgType, fromUid, channel, urlKey))
-	url := fmt.Sprintf("http://127.0.0.1:5036/msg/%s/%s", fromUid, url2.QueryEscape("你抽中了2元红包，请打开美团客户端查看"))
-	go http.Get(url)
+
+	if fromUid[:2] == "@@" {
+		isFromUser = false
+	}
+
+	//来源于分组的消息
+
+	if isFromUser {
+		url := fmt.Sprintf("http://127.0.0.1:5036/msg/%s/%s", fromUid, url2.QueryEscape("你抽中了2元红包，请打开美团客户端查看"))
+		go http.Get(url)
+	}
+
 }
 
 func init() {
