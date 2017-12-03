@@ -4,12 +4,14 @@
 package cmd
 
 import (
+	"fmt"
 	"github.com/spf13/cobra"
 	jww "github.com/spf13/jwalterweatherman"
 	"github.com/spf13/viper"
 	"log"
 	"os"
 	"path"
+	"time"
 	WeChat "yx.com/meituan-luck/wechat"
 )
 
@@ -97,6 +99,7 @@ func msgProcess() {
 }
 func getWXLogger(logFile *os.File) (error, *jww.Notepad) {
 	fileName := viper.GetString("weixin_server.log_file")
+	fileName = fmt.Sprintf(fileName, time.Now().Format("2006-01-02-15:04:05"))
 	logFile, err := os.OpenFile(fileName, os.O_CREATE|os.O_APPEND|os.O_RDWR, 0666)
 	wxNotepad := jww.NewNotepad(jww.LevelInfo, jww.LevelDebug, os.Stdout, logFile, "wechat", log.Ldate|log.Ltime)
 	return err, wxNotepad

@@ -1,6 +1,6 @@
 {
   "weixin_server": {
-    "log_file": "logs/log.txt",
+    "log_file": "logs/weixin_%s.txt",
     "save_to_file": true,
     "auto_reply": true,
     "auto_reply_src": false,
