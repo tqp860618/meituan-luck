@@ -19,6 +19,12 @@ type MessageOut struct {
 	Type       int
 }
 
+type MessageLink struct {
+	XMLName xml.Name `xml:"msg"`
+	Title   string   `xml:"appmsg>title"`
+	Url     string   `xml:"appmsg>url"`
+}
+
 type Message struct {
 	FromUserName         string
 	PlayLength           int
@@ -52,7 +58,7 @@ func (m Message) String() string {
 	if to == "" {
 		to = m.ToUserName
 	}
-	return from + "->" + to + ":" + m.Content + "\n"
+	return fmt.Sprintf("[%d]%s->%s:%s\n", m.MsgType, from, to, m.Content)
 }
 
 type AppInfo struct {
@@ -139,7 +145,7 @@ func (r *Response) IsSuccess() bool {
 }
 
 func (r *Response) Error() error {
-	return fmt.Errorf("message:[%s]", r.BaseResponse.ErrMsg)
+	return fmt.Errorf("message:[%d,%s]", r.BaseResponse.Ret, r.BaseResponse.ErrMsg)
 }
 
 type MemberResp struct {
