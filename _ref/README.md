@@ -53,3 +53,10 @@ JS加密库 https://github.com/brix/crypto-js
 
 接收消息：
 http://127.0.0.1:6036/msg/49/@2c002b3be118d8177a211b94535ed13d/B2EA8E1ABA8B47EA82DB475BA17B517D/3A595577B3B247829BEF51071FCACB33
+
+
+
+{"data":"","toast":"你已经抢过这个红包了","code":4002,"msg":"你已经抢过这个红包了"}
+
+
+

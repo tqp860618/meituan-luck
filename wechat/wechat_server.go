@@ -3,6 +3,7 @@ package wechat
 import (
 	"fmt"
 	"github.com/gorilla/mux"
+	"github.com/spf13/viper"
 	"io"
 	"net/http"
 	"net/url"
@@ -15,7 +16,7 @@ func (w *Wechat) ServerDaemon() {
 	rtr.HandleFunc("/msg/{to}/{msg}", w.msgServer).Methods("GET")
 	http.Handle("/", rtr)
 
-	common.Log.ERROR.Fatalln(http.ListenAndServe(":5036", nil))
+	common.Log.ERROR.Fatalln(http.ListenAndServe(viper.GetString("weixin_server.msg_server_address"), nil))
 }
 
 func (w *Wechat) msgServer(res http.ResponseWriter, req *http.Request) {

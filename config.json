@@ -9,6 +9,15 @@
       "对不起，您所呼叫的用户不在手机旁,稍后会给你答复[自动回复]",
       "主人离开中，稍后回来。--[微信终端版]"
     ],
-    "meituan_luck_server": "http://127.0.0.1:6036/msg/[fromType]/[fromUid]/[channel]/[urlKey]"
+    "meituan_luck_server": "http://127.0.0.1:6036/msg/[luckNum]/[fromUid]/[channel]/[urlKey]",
+    "msg_server_address": "127.0.0.1:5036"
+  },
+  "luck_server": {
+    "server_address": "127.0.0.1:6036",
+    "encrypt_address": "http://127.0.0.1:5321/encrypt/[text]",
+    "decrypt_address": "http://127.0.0.1:5321/decrypt/[text]",
+    "luck_address": "http://127.0.0.1:5321/luck/[userPhone]/[channel]/[urlKey]",
+    "info_address": "http://127.0.0.1:5321/info/[channel]/[urlKey]",
+    "redis_address": "127.0.0.1:6379"
   }
 }
