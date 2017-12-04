@@ -87,3 +87,5 @@ func (l *Luck) AddActivity(channel string, urlKey string, luckBestNum int) (err 
 func (l *Luck) ProcessActivity(record *ActivityRecord) {
 
 }
+
+// todo 启动时将存储的记录重新读取
