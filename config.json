@@ -12,13 +12,14 @@
     "meituan_luck_server": "http://127.0.0.1:6036/msg/[luckNum]/[fromUid]/[channel]/[urlKey]",
     "msg_server_address": "127.0.0.1:5036"
   },
+  "redis_address": "127.0.0.1:6379",
   "luck_server": {
     "server_address": "127.0.0.1:6036",
     "encrypt_address": "http://127.0.0.1:5321/encrypt/[text]",
     "decrypt_address": "http://127.0.0.1:5321/decrypt/[text]",
     "luck_address": "http://127.0.0.1:5321/luck/[userPhone]/[channel]/[urlKey]",
     "info_address": "http://127.0.0.1:5321/info/[channel]/[urlKey]",
-    "redis_address": "127.0.0.1:6379",
-    "meituan_luck_db": "root:123456@tcp(127.0.0.1:3306)/meituan_luck"
+    "meituan_luck_db": "root:123456@tcp(127.0.0.1:3306)/meituan_luck",
+    "num_simple_pick": 3
   }
 }

@@ -8,9 +8,14 @@ import (
 )
 
 type Luck struct {
-	PoolActivity *StorePool
-	MsgServer    *MsgServer
-	DBConn       *sqlx.DB
+	PoolActivity  *StorePool
+	MsgServer     *MsgServer
+	DBConn        *sqlx.DB
+	TaskGenServer *TaskGenServer
+}
+type TaskGenServer struct {
+	DBConn             *sqlx.DB
+	SimplePickNumDaily int
 }
 
 type StorePool struct {
@@ -44,6 +49,14 @@ type ActivityInfoJson struct {
 type BaseJsonRst struct {
 	Error string      `json:"error"`
 	Rst   interface{} `json:"rst"`
+}
+
+type User struct {
+	ID          int64  `db:"id"`
+	Mobile      string `db:"mobile"`
+	PayEndTime  int    `db:"pay_end_time"`
+	LuckLeftNum int    `db:"luck_left_num"`
+	WechatID    string `db:"wxid"`
 }
 
 func (r *ActivityRecord) Serialize() (str string, err error) {

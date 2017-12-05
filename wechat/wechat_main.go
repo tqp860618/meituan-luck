@@ -8,8 +8,6 @@ import (
 )
 
 func Main() {
-	common.PrepareLog()
-
 	common.Log.INFO.Print("启动...")
 
 	wechat := NewWechat()

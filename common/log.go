@@ -11,7 +11,7 @@ import (
 
 var Log *CTLogger
 
-func PrepareLog() {
+func InitLog() {
 	if Log != nil {
 		return
 	}
@@ -33,7 +33,6 @@ func newLog() (c *CTLogger, err error) {
 		WARN:  notebook.WARN,
 		DEBUG: notebook.DEBUG,
 	}
-	//defer logFile.Close()
 	return
 }
 

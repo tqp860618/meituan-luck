@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"github.com/garyburd/redigo/redis"
+	_ "github.com/go-sql-driver/mysql"
 	"github.com/jmoiron/sqlx"
 	"github.com/spf13/viper"
 	"io/ioutil"
@@ -13,15 +14,18 @@ import (
 	"yx.com/meituan-luck/common"
 )
 
-func NewLuck() (luck *Luck, conn redis.Conn, err error) {
-	conn, err = redis.Dial("tcp", viper.GetString("luck_server.redis_address"))
+func NewLuck() (luck *Luck, err error) {
+	redisConn, err := redis.Dial("tcp", viper.GetString("redis_address"))
 	if err != nil {
 		return
 	}
 	dbConn, err := sqlx.Connect("mysql", viper.GetString("luck_server.meituan_luck_db"))
+	if err != nil {
+		return
+	}
 	luck = &Luck{
 		PoolActivity: &StorePool{
-			RedisConn: conn,
+			RedisConn: redisConn,
 			KeyAppend: "_meituan_luck",
 			ParentKey: "_meituan_activity_p",
 			Locker:    &sync.Mutex{},
@@ -30,10 +34,18 @@ func NewLuck() (luck *Luck, conn redis.Conn, err error) {
 			LuckServer: nil,
 		},
 		DBConn: dbConn,
+		TaskGenServer: &TaskGenServer{
+			DBConn:             dbConn,
+			SimplePickNumDaily: viper.GetInt("luck_server.num_simple_pick"),
+		},
 	}
 	luck.MsgServer.LuckServer = luck
 
 	return
+}
+func (l *Luck) CloseConn() {
+	l.PoolActivity.RedisConn.Close()
+	l.DBConn.Close()
 }
 func (l *Luck) getRecordInfo(channel string, urlKey string) (recordJson *ActivityInfoJson, err error) {
 	urlRequire := strings.Replace(viper.GetString("luck_server.info_address"), "[channel]", channel, -1)

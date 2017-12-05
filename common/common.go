@@ -6,6 +6,11 @@ import (
 	"io"
 )
 
+func Init() {
+	InitLog()
+	InitPersistent()
+}
+
 func SystemLoop() {
 	system := make(chan bool)
 	<-system
