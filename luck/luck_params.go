@@ -3,12 +3,14 @@ package luck
 import (
 	"encoding/json"
 	"github.com/garyburd/redigo/redis"
+	"github.com/jmoiron/sqlx"
 	"sync"
 )
 
 type Luck struct {
 	PoolActivity *StorePool
 	MsgServer    *MsgServer
+	DBConn       *sqlx.DB
 }
 
 type StorePool struct {

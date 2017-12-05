@@ -18,6 +18,7 @@
     "decrypt_address": "http://127.0.0.1:5321/decrypt/[text]",
     "luck_address": "http://127.0.0.1:5321/luck/[userPhone]/[channel]/[urlKey]",
     "info_address": "http://127.0.0.1:5321/info/[channel]/[urlKey]",
-    "redis_address": "127.0.0.1:6379"
+    "redis_address": "127.0.0.1:6379",
+    "meituan_luck_db": "root:123456@tcp(127.0.0.1:3306)/meituan_luck"
   }
 }

@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"github.com/garyburd/redigo/redis"
+	"github.com/jmoiron/sqlx"
 	"github.com/spf13/viper"
 	"io/ioutil"
 	"net/http"
@@ -17,6 +18,7 @@ func NewLuck() (luck *Luck, conn redis.Conn, err error) {
 	if err != nil {
 		return
 	}
+	dbConn, err := sqlx.Connect("mysql", viper.GetString("luck_server.meituan_luck_db"))
 	luck = &Luck{
 		PoolActivity: &StorePool{
 			RedisConn: conn,
@@ -27,6 +29,7 @@ func NewLuck() (luck *Luck, conn redis.Conn, err error) {
 		MsgServer: &MsgServer{
 			LuckServer: nil,
 		},
+		DBConn: dbConn,
 	}
 	luck.MsgServer.LuckServer = luck
 
