@@ -13,7 +13,7 @@ import (
 func (w *Wechat) ServerDaemon() {
 	//http.HandleFunc("/msg", w.msgServer)
 	rtr := mux.NewRouter()
-	rtr.HandleFunc("/msg/{to}/{msg}", w.msgServer).Methods("GET")
+	rtr.HandleFunc("/msg_send/{to}/{msg}", w.msgServer).Methods("GET")
 	http.Handle("/", rtr)
 
 	common.Log.ERROR.Fatalln(http.ListenAndServe(viper.GetString("weixin_server.msg_server_address"), nil))

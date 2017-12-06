@@ -8,14 +8,33 @@ import (
 )
 
 type Luck struct {
-	PoolActivity  *StorePool
-	MsgServer     *MsgServer
 	DBConn        *sqlx.DB
+	RedisConn     redis.Conn
+	MsgServer     *MsgServer
 	TaskGenServer *TaskGenServer
+	TaskDisServer *TaskDisServer
+	TaskExeServer *TaskExeServer
+}
+type MsgNewActivity struct {
+	Channel string
+	UrlKey  string
+	BestNum int
 }
 type TaskGenServer struct {
 	DBConn             *sqlx.DB
 	SimplePickNumDaily int
+}
+type TaskDisServer struct {
+	DBConn *sqlx.DB
+}
+type TaskExeServer struct {
+	DBConn          *sqlx.DB
+	PoolActivity    *StorePool
+	ChanNewActivity chan MsgNewActivity
+}
+type MsgServer struct {
+	LuckServer      *Luck
+	ChanNewActivity chan MsgNewActivity
 }
 
 type StorePool struct {
@@ -23,10 +42,6 @@ type StorePool struct {
 	KeyAppend string
 	ParentKey string
 	Locker    *sync.Mutex
-}
-
-type MsgServer struct {
-	LuckServer *Luck
 }
 
 type ActivityRecord struct {

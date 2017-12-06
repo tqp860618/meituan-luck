@@ -9,7 +9,7 @@
       "对不起，您所呼叫的用户不在手机旁,稍后会给你答复[自动回复]",
       "主人离开中，稍后回来。--[微信终端版]"
     ],
-    "meituan_luck_server": "http://127.0.0.1:6036/msg/[luckNum]/[fromUid]/[channel]/[urlKey]",
+    "meituan_luck_server": "http://127.0.0.1:6036/new_activity/[luckNum]/[fromUid]/[channel]/[urlKey]",
     "msg_server_address": "127.0.0.1:5036"
   },
   "redis_address": "127.0.0.1:6379",

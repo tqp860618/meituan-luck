@@ -130,6 +130,7 @@ func (w *Wechat) GetQR() (err error) {
 		err = errors.New("no this uuid")
 		return
 	}
+	common.Log.INFO.Println(QrContentUrl + w.Uuid)
 	qrcodeTerminal.New().Get(QrContentUrl + w.Uuid).Print()
 	return
 }

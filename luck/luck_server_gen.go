@@ -11,9 +11,9 @@ import (
 func (g *TaskGenServer) Start() {
 	common.Log.INFO.Println("task gen server started")
 	go g.genDailyTask()
-	go g.waitForNewRegTask()
-	go g.waitForNewUpgradeTask()
-	go g.waitForNewHandedTask()
+	go g.handleNewRegTask()
+	go g.handleNewUpgradeTask()
+	go g.handleNewHandedTask()
 }
 
 //生成每天的任务
@@ -45,18 +45,18 @@ func (g *TaskGenServer) genDailyTask() {
 }
 
 //生成新注册的任务
-func (g *TaskGenServer) waitForNewRegTask() {
+func (g *TaskGenServer) handleNewRegTask() {
 
 }
 
 //生成新付费的任务
-func (g *TaskGenServer) waitForNewUpgradeTask() {
+func (g *TaskGenServer) handleNewUpgradeTask() {
 
 }
 
 //生成手动临时请求的任务，比如从网页端单独请求一次
 
-func (g *TaskGenServer) waitForNewHandedTask() {
+func (g *TaskGenServer) handleNewHandedTask() {
 
 }
 
