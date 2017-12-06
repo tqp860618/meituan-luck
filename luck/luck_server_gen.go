@@ -21,10 +21,10 @@ func (g *TaskGenServer) genDailyTask() {
 	needToGen := false
 	firstLoop := true
 	todayGenned := false
-	persistentKey := "todayGenned" + time.Now().Format(`2006-01-02`)
-	todayGenned = common.Persistent.GetBool(persistentKey)
 
 	for {
+		persistentKey := "todayGenned" + time.Now().Format(`2006-01-02`)
+		todayGenned = common.Persistent.GetBool(persistentKey)
 		hour := time.Now().Hour()
 		if (hour != 0 && !firstLoop) || todayGenned {
 			needToGen = false
@@ -37,6 +37,7 @@ func (g *TaskGenServer) genDailyTask() {
 			todayGenned = true
 			common.Persistent.SetBool(persistentKey, true)
 		}
+
 		// 确保每小时都可以执行到
 
 		time.Sleep(time.Minute * 30)
