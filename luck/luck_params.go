@@ -15,26 +15,53 @@ type Luck struct {
 	TaskDisServer *TaskDisServer
 	TaskExeServer *TaskExeServer
 }
-type MsgNewActivity struct {
+type SigNewActivity struct {
 	Channel string
 	UrlKey  string
-	BestNum int
+	BestPos int
 }
+
+type SigNewTask struct {
+	ID       int64
+	Status   int
+	Mobile   string
+	TimeGen  int
+	UserID   int64
+	WechatID string
+	Type     int
+}
+
+// PoolActivity 的当前状态信息
+type SigPoolActivityStatus struct {
+	status int
+}
+
 type TaskGenServer struct {
 	DBConn             *sqlx.DB
 	SimplePickNumDaily int
 }
 type TaskDisServer struct {
-	DBConn *sqlx.DB
+	DBConn                *sqlx.DB
+	SigNewTasks           chan []SigNewTask
+	SigPoolActivityStatus chan *SigPoolActivityStatus
+	ActivityStatus        *SigPoolActivityStatus
 }
 type TaskExeServer struct {
-	DBConn          *sqlx.DB
-	PoolActivity    *StorePool
-	ChanNewActivity chan MsgNewActivity
+	DBConn                *sqlx.DB
+	PoolActivity          *PoolActivity
+	SigNewActivity        chan SigNewActivity
+	SigNewTasks           chan []SigNewTask
+	SigPoolActivityStatus chan *SigPoolActivityStatus
+	ActivityStatus        *SigPoolActivityStatus
 }
 type MsgServer struct {
-	LuckServer      *Luck
-	ChanNewActivity chan MsgNewActivity
+	LuckServer     *Luck
+	SigNewActivity chan SigNewActivity
+}
+
+type PoolActivity struct {
+	StoreMem  map[string]*ActivityRecord
+	StoreBack *StorePool
 }
 
 type StorePool struct {
@@ -45,20 +72,24 @@ type StorePool struct {
 }
 
 type ActivityRecord struct {
-	Channel     string
-	UrlKey      string
-	LuckBestNum int
-	LeftCount   int
-	BestLuck    int
-	CanContinue bool
-	Finished    bool
+	ID            string
+	Channel       string
+	UrlKey        string
+	BestLuckPrice int  //最佳机会的数值
+	BestLuckPos   int  //最佳机会的位置
+	NowPos        int  //现在的位置
+	TotalPos      int  //总次数
+	LeftSimpleNum int  //剩余的普通机会数
+	LeftBestIf    bool //最佳位置是否还存在
+	NextBestIf    bool //下一个位置是否是最佳
+	Finished      bool
 }
 type ActivityInfoJson struct {
-	CouponsCount int  `json:"couponsCount"`
-	BestLuck     int  `json:"bestLuck"`
-	CanContinue  bool `json:"canContinue"`
-	Finished     bool `json:"finished"`
-	Code         int  `json:"code"`
+	CouponsCount  int  `json:"couponsCount"`
+	BestLuckPrice int  `json:"bestLuck"`
+	CanContinue   bool `json:"canContinue"`
+	Finished      bool `json:"finished"`
+	Code          int  `json:"code"`
 }
 
 type BaseJsonRst struct {

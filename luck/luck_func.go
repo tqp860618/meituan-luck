@@ -17,6 +17,7 @@ func NewLuck() (luck *Luck, err error) {
 	if err != nil {
 		return
 	}
+	activityRecords := make(map[string]*ActivityRecord)
 	luck = &Luck{
 		TaskGenServer: &TaskGenServer{
 			DBConn:             dbConn,
@@ -27,11 +28,14 @@ func NewLuck() (luck *Luck, err error) {
 		},
 		TaskExeServer: &TaskExeServer{
 			DBConn: dbConn,
-			PoolActivity: &StorePool{
-				RedisConn: redisConn,
-				KeyAppend: "_meituan_luck",
-				ParentKey: "_meituan_activity_p",
-				Locker:    &sync.Mutex{},
+			PoolActivity: &PoolActivity{
+				StoreMem: activityRecords,
+				StoreBack: &StorePool{
+					RedisConn: redisConn,
+					KeyAppend: "_meituan_luck",
+					ParentKey: "_meituan_activity_p",
+					Locker:    &sync.Mutex{},
+				},
 			},
 		},
 		MsgServer: &MsgServer{
@@ -41,13 +45,24 @@ func NewLuck() (luck *Luck, err error) {
 		RedisConn: redisConn,
 	}
 	luck.MsgServer.LuckServer = luck
+	luck.initChans()
 	return
 }
-func (l *Luck) InitChans() {
-	chanNewActivity := make(chan MsgNewActivity, maxChanNewActivitySize)
+func (l *Luck) initChans() {
+	chanNewActivity := make(chan SigNewActivity, maxChanNewActivitySize)
 	//新的活动需要在处理和消息服务间传递
-	l.TaskExeServer.ChanNewActivity = chanNewActivity
-	l.MsgServer.ChanNewActivity = chanNewActivity
+	l.TaskExeServer.SigNewActivity = chanNewActivity
+	l.MsgServer.SigNewActivity = chanNewActivity
+
+	chanNewTasks := make(chan []SigNewTask, maxChanNewTasksSize)
+
+	l.TaskExeServer.SigNewTasks = chanNewTasks
+	l.TaskDisServer.SigNewTasks = chanNewTasks
+
+	chanActivityStatus := make(chan *SigPoolActivityStatus, maxChanNewActivityStatusSize)
+
+	l.TaskExeServer.SigPoolActivityStatus = chanActivityStatus
+	l.TaskDisServer.SigPoolActivityStatus = chanActivityStatus
 
 }
 func (l *Luck) CloseConn() {
@@ -56,7 +71,9 @@ func (l *Luck) CloseConn() {
 }
 
 const (
-	maxChanNewActivitySize = 5
+	maxChanNewActivitySize       = 50
+	maxChanNewTasksSize          = 100
+	maxChanNewActivityStatusSize = 20
 )
 
 // todo 启动时将存储的记录重新读取

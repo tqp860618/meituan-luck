@@ -88,7 +88,7 @@ func (g *TaskGenServer) genDailySimpleTask() (err error) {
 					"time_gen": now,
 					"uid":      user.ID,
 					"wxid":     user.WechatID,
-					"type":     1,
+					"type":     TYPE_TASK_SIMPLE,
 				})
 				common.Log.INFO.Printf("gen simple task id:%d for %s\n", taskID, user.Mobile)
 				userCanGenNum--
@@ -125,7 +125,7 @@ func (g *TaskGenServer) genDailyBestTask() (err error) {
 				"time_gen": now,
 				"uid":      user.ID,
 				"wxid":     user.WechatID,
-				"type":     2,
+				"type":     TYPE_TASK_BEST,
 			})
 			common.Log.INFO.Printf("gen best task id:%d for %s\n", taskID, user.Mobile)
 		}
@@ -142,3 +142,10 @@ func (g *TaskGenServer) genTaskID(firstNum int) (i int64, err error) {
 	i, err = strconv.ParseInt(str, 10, 64)
 	return
 }
+
+const (
+	TYPE_TASK_SIMPLE        = 1
+	TYPE_TASK_BEST          = 2
+	TYPE_TASK_SIMPLE_HANDLE = 3
+	TYPE_TASK_BEST_HANDLE   = 4
+)

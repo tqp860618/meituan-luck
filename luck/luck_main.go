@@ -5,9 +5,6 @@ import "yx.com/meituan-luck/common"
 func Main() {
 	luck, _ := NewLuck()
 
-	// 初始化所有的信号到各服务中
-	luck.InitChans()
-
 	// 确保链接关闭
 	defer luck.CloseConn()
 
