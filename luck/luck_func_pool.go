@@ -46,6 +46,7 @@ func (a *PoolActivity) FetchRecordsFromStore() {
 		var recordsAll = a.StoreBack.GetAll()
 		for i := 0; i < len(recordsAll); i++ {
 			if !recordsAll[i].Finished && (recordsAll[i].LeftSimpleNum > 0 || recordsAll[i].LeftBestIf) {
+
 				a.StoreMem[recordsAll[i].ID] = &recordsAll[i]
 			}
 		}

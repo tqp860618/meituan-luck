@@ -10,6 +10,14 @@ import (
 func (d *TaskDisServer) Start() {
 	d.Logln("分配服务器已启动")
 	go d.handleActivityStatusChange()
+	go d.restoreUnExeTasks()
+}
+
+func (d *TaskDisServer) restoreUnExeTasks() {
+	var tasks []SigNewTask
+	query := fmt.Sprintf("SELECT id,status,mobile,time_gen,uid,wxid,type FROM mt_task WHERE status=1 ORDER BY id ASC")
+	d.DBConn.Select(&tasks, query)
+	d.SigNewTasks <- tasks
 }
 
 // 接收执行服务器的状态变化，好进行每次迭代分配任务

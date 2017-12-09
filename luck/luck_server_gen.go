@@ -31,6 +31,7 @@ func (g *TaskGenServer) waitForTaskResults() {
 			case RST_NO_LEFT:
 				g.callbackNotLeft(result)
 			case RST_CALL_ERR:
+				g.callbackSystemErr(result)
 			case RST_ACTIVITY_PASS:
 				g.callbackActivityEnd(result)
 
@@ -116,6 +117,17 @@ func (g *TaskGenServer) callbackActivityEnd(r TaskResult) (err error) {
 
 	return
 }
+func (g *TaskGenServer) callbackSystemErr(r TaskResult) (err error) {
+	//本任务设置为取回，用于从新取回
+	query := fmt.Sprintf("UPDATE mt_task set status=%d where id=%d;", STATUS_TASK_RESTORE, r.Task.ID)
+	_, err = g.DBConn.Exec(query)
+	if err != nil {
+		return
+	}
+
+	return
+}
+
 func (g *TaskGenServer) callbackOK(r TaskResult) (err error) {
 	//本任务设置为完成
 	query := fmt.Sprintf("UPDATE mt_task set status=%d where id=%d;", STATUS_TASK_FINISH, r.Task.ID)

@@ -428,30 +428,38 @@ func (w *Wechat) SyncDaemon(msgIn chan Message) {
 						msg.Url = msgLink.Url
 						msgIn <- msg
 					case 51:
+						common.Log.INFO.Printf("联系人信息消息：%v，%v", msg, m)
+						msgIn <- msg
 						//获取联系人信息成功
 					case 62:
+						common.Log.INFO.Printf("小饰品消息：%v,%v", msg, m)
+						msgIn <- msg
 						//获得一段小视频
 					case 10002:
+						common.Log.INFO.Printf("撤回消息：%v,%v", msg, m)
+						msgIn <- msg
 						//撤回一条消息
+					case 10000:
+						common.Log.INFO.Printf("红包消息：%v,%v", msg, m)
+						msgIn <- msg
+						//红包消息
 					default:
-						msg := Message{}
-						msg.Content = fmt.Sprintf("未知消息：%s", m)
+						common.Log.INFO.Printf("未处理消息：%v,%v", msg, m)
 						msgIn <- msg
 					}
 
 				}
 			case 4: //通讯录更新
 				w.GetContacts()
-			case 6: //可能是红包
-				common.Log.INFO.Printf("请速去手机抢红包")
-				// todo 红包消息需要被阅读掉 不然一直提示
 			case 7:
 				common.Log.INFO.Printf("在手机上操作了微信")
 			case 0:
 				common.Log.INFO.Printf("消息:无事件")
+			default:
+				common.Log.INFO.Printf("未知消息1：%v", resp)
 			}
 		default:
-			common.Log.DEBUG.Printf("the resp:%+v", resp)
+			common.Log.INFO.Printf("未知消息2：%v", resp)
 			time.Sleep(time.Second * 4)
 
 			continue

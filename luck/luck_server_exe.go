@@ -13,11 +13,13 @@ import (
 
 func (e *TaskExeServer) Start() {
 	e.Logln("执行服务器已启动")
-	//处理新的activity消息，不代表一定有新的活动，主要是检查有效性
+	// 每次重启时重新获取活动信息
+	// 定时重新获取活动信息
 	go e.restoreUsefulActivity()
 	go e.handleNewActivityMsg()
 	go e.waitForNewTasks()
 	go e.repeatBroadcastStatusChange()
+	go e.repeatUpdateRecordInfoFromRemote()
 }
 
 func (e *TaskExeServer) getRecords() map[string]*ActivityRecord {
@@ -43,11 +45,12 @@ func (e *TaskExeServer) waitForNewTasks() {
 						bestTasksIndex += 1
 					}
 					if record.LeftSimpleNum > 0 && simpleTasksIndex+record.LeftSimpleNum <= len(simpleTasks) {
-						disTasks = append(disTasks, simpleTasks[simpleTasksIndex:simpleTasksIndex+record.LeftSimpleNum-1]...)
+						disTasks = append(disTasks, simpleTasks[simpleTasksIndex:simpleTasksIndex+record.LeftSimpleNum]...)
 						simpleTasksIndex += record.LeftSimpleNum
 					}
 					if len(disTasks) > 0 {
 						e.PoolActivity.ActivityChans[record.ID] <- disTasks
+						// todo  这里存在任务分配不出的情况；以及chan未初始化好的情况
 					}
 				}
 			}
@@ -62,10 +65,37 @@ func (e *TaskExeServer) waitForNewTasks() {
 func (e *TaskExeServer) restoreUsefulActivity() {
 	e.PoolActivity.FetchRecordsFromStore()
 	for _, record := range e.PoolActivity.StoreMem {
-		go e.processActivity(record)
+		recordJson, err := e.getRecordInfo(record.Channel, record.UrlKey)
+		if err == nil {
+			e.getRecordFromJson(record, record.Channel, record.UrlKey, record.BestLuckPos, recordJson)
+		}
+		if record.Finished {
+			e.PoolActivity.Delete(record)
+		} else {
+			e.PoolActivity.Update(record)
+			go e.processActivity(record)
+		}
+	}
+}
+
+func (e *TaskExeServer) repeatUpdateRecordInfoFromRemote() {
+	for {
+		for _, record := range e.getRecords() {
+			recordJson, err := e.getRecordInfo(record.Channel, record.UrlKey)
+			if err == nil {
+				e.getRecordFromJson(record, record.Channel, record.UrlKey, record.BestLuckPos, recordJson)
+			}
+			if record.Finished {
+				e.PoolActivity.Delete(record)
+			} else {
+				e.PoolActivity.Update(record)
+			}
+		}
+		time.Sleep(time.Second * 20)
 	}
 
 }
+
 func (e *TaskExeServer) handleNewActivityMsg() {
 	sig := SigNewActivity{}
 	for {
