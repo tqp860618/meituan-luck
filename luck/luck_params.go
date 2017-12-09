@@ -4,7 +4,9 @@ import (
 	"encoding/json"
 	"github.com/garyburd/redigo/redis"
 	"github.com/jmoiron/sqlx"
+
 	"sync"
+	"yx.com/meituan-luck/common"
 )
 
 type Luck struct {
@@ -22,23 +24,27 @@ type SigNewActivity struct {
 }
 
 type SigNewTask struct {
-	ID       int64
-	Status   int
-	Mobile   string
-	TimeGen  int
-	UserID   int64
-	WechatID string
-	Type     int
+	ID       int64  `db:"id"`
+	Status   int    `db:"status"`
+	Mobile   string `db:"mobile"`
+	TimeGen  int    `db:"time_gen"`
+	UserID   int64  `db:"uid"`
+	WechatID string `db:"wxid"`
+	Type     int    `db:"type"`
 }
 
 // PoolActivity 的当前状态信息
 type SigPoolActivityStatus struct {
-	status int
+	status           int
+	PoolSize         int
+	BestLuckChance   int
+	SimpleLuckChance int
 }
 
 type TaskGenServer struct {
 	DBConn             *sqlx.DB
 	SimplePickNumDaily int
+	TaskResult         chan TaskResult
 }
 type TaskDisServer struct {
 	DBConn                *sqlx.DB
@@ -53,6 +59,12 @@ type TaskExeServer struct {
 	SigNewTasks           chan []SigNewTask
 	SigPoolActivityStatus chan *SigPoolActivityStatus
 	ActivityStatus        *SigPoolActivityStatus
+	ActivityLocker        *sync.Mutex
+	TaskResult            chan TaskResult
+}
+type TaskResult struct {
+	Task   *SigNewTask
+	Status int
 }
 type MsgServer struct {
 	LuckServer     *Luck
@@ -60,8 +72,9 @@ type MsgServer struct {
 }
 
 type PoolActivity struct {
-	StoreMem  map[string]*ActivityRecord
-	StoreBack *StorePool
+	StoreMem      map[string]*ActivityRecord
+	StoreBack     *StorePool
+	ActivityChans map[string]chan []SigNewTask
 }
 
 type StorePool struct {
@@ -72,17 +85,18 @@ type StorePool struct {
 }
 
 type ActivityRecord struct {
-	ID            string
-	Channel       string
-	UrlKey        string
-	BestLuckPrice int  //最佳机会的数值
-	BestLuckPos   int  //最佳机会的位置
-	NowPos        int  //现在的位置
-	TotalPos      int  //总次数
-	LeftSimpleNum int  //剩余的普通机会数
-	LeftBestIf    bool //最佳位置是否还存在
-	NextBestIf    bool //下一个位置是否是最佳
-	Finished      bool
+	ID             string
+	Channel        string
+	UrlKey         string
+	BestLuckPrice  int  //最佳机会的数值
+	BestLuckPos    int  //最佳机会的位置
+	NowPos         int  //现在的位置
+	TotalPos       int  //总次数
+	LeftSimpleNum  int  //剩余的普通机会数
+	LeftBestIf     bool //最佳位置是否还存在
+	NextBestIf     bool //下一个位置是否是最佳
+	Finished       bool
+	WaitingForJobs bool
 }
 type ActivityInfoJson struct {
 	CouponsCount  int  `json:"couponsCount"`
@@ -108,6 +122,7 @@ type User struct {
 func (r *ActivityRecord) Serialize() (str string, err error) {
 	strByte, err := json.Marshal(r)
 	if err != nil {
+		common.Log.ERROR.Println(err)
 		return
 	}
 	str = string(strByte)

@@ -4,7 +4,7 @@ package main
 // todo	抢红包时抢到的面额、有效期
 // todo 向微信发送图片、发送链接
 // _todo 日志分离到配置
-// todo watch 进程 观察所有的数据情况，使用terminal UI
+// todo watch 进程 观察所有的数据情况，使用terminal Layout
 // todo 由于加密限制，抢红包的加密、解密交给JS处理，http服务
 // todo 幸运红包
 // todo 在不需要抢的时候，通过获取信息来监控最luck的，免费赠送。

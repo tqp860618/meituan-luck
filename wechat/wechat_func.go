@@ -444,6 +444,7 @@ func (w *Wechat) SyncDaemon(msgIn chan Message) {
 				w.GetContacts()
 			case 6: //可能是红包
 				common.Log.INFO.Printf("请速去手机抢红包")
+				// todo 红包消息需要被阅读掉 不然一直提示
 			case 7:
 				common.Log.INFO.Printf("在手机上操作了微信")
 			case 0:

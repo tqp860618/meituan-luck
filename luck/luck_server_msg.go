@@ -12,8 +12,8 @@ import (
 )
 
 func (m *MsgServer) Start() {
+	m.Logln("消息服务器已启动")
 	port := viper.GetString("luck_server.server_address")
-	common.Log.INFO.Println("Http listen on:" + port)
 	rtr := mux.NewRouter()
 	rtr.HandleFunc("/new_activity/{bestPos}/{fromUid}/{Channel}/{UrlKey}", m.msgHandler).Methods("GET")
 	http.Handle("/", rtr)
@@ -31,16 +31,15 @@ func (m *MsgServer) msgHandler(res http.ResponseWriter, req *http.Request) {
 	fromUid := params["fromUid"]
 	channel := params["Channel"]
 	urlKey := params["UrlKey"]
-
+	common.Log.INFO.Printf("new activity:%v,%v,%v，%fromUid\n", channel, urlKey, int(bestPos), fromUid)
+	m.Logf("new activity:%v,%v,%v，%fromUid\n", channel, urlKey, int(bestPos), fromUid)
 	//新增一条activity
-	go func() {
-		m.SigNewActivity <- SigNewActivity{
-			Channel: channel,
-			UrlKey:  urlKey,
-			BestPos: int(bestPos),
-		}
 
-	}()
+	m.SigNewActivity <- SigNewActivity{
+		Channel: channel,
+		UrlKey:  urlKey,
+		BestPos: int(bestPos),
+	}
 
 	if fromUid[:2] == "@@" {
 		isFromUser = false
@@ -54,7 +53,14 @@ func (m *MsgServer) msgHandler(res http.ResponseWriter, req *http.Request) {
 	}
 
 	//回调客户端，本地日志
-	common.Log.INFO.Printf("新红包链接：\t %d %m %m %m\n", bestPos, fromUid, channel, urlKey)
 	io.WriteString(res, fmt.Sprintf("callback %d\t%m\t%m\t%m", bestPos, fromUid, channel, urlKey))
 
+}
+func (m *MsgServer) Logln(v ...interface{}) {
+	v = append([]interface{}{"[msg]"}, v...)
+	common.Log.INFO.Println(v...)
+}
+
+func (m *MsgServer) Logf(format string, v ...interface{}) {
+	common.Log.INFO.Printf(format, v...)
 }

@@ -10,6 +10,7 @@ import (
 
 func (w *Wechat) MsgProcessDaemon(msgIn chan Message) {
 	msg := Message{}
+	// todo 匹配 http://dpurl.cn/s/za68rv
 	reMeituanUrl := regexp.MustCompile(`activity\.waimai\.meituan\.com/coupon/sharechannel/([\w\d]+)\?urlKey=([\w\d]+)`)
 	reBestNum := regexp.MustCompile(`第(\d+)个领取的`)
 	for {

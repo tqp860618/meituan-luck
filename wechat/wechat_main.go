@@ -64,6 +64,15 @@ func Main() {
 	go wechat.ServerDaemon()
 	common.Log.INFO.Println("Http服务器已开启")
 
+	// 启动UI线程
+	//windows := map[string]map[string]string{
+	//	"Win 1": {
+	//		"Com 1": "hello",
+	//	},
+	//}
+	//
+	//ui := layout.NewUI("微信机器人", windows)
+	//defer ui.Close()
 	common.SystemLoop()
 }
 
