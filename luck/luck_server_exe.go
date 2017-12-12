@@ -18,7 +18,7 @@ func (e *TaskExeServer) Start() {
 	go e.restoreUsefulActivity()
 	go e.handleNewActivityMsg()
 	go e.waitForNewTasks()
-	go e.repeatBroadcastStatusChange()
+	//go e.repeatBroadcastStatusChange()
 	go e.repeatUpdateRecordInfoFromRemote()
 }
 
@@ -48,11 +48,24 @@ func (e *TaskExeServer) waitForNewTasks() {
 						disTasks = append(disTasks, simpleTasks[simpleTasksIndex:simpleTasksIndex+record.LeftSimpleNum]...)
 						simpleTasksIndex += record.LeftSimpleNum
 					}
-					if len(disTasks) > 0 {
+					//如果 chan未初始化好的情况
+					if len(disTasks) > 0 && (e.PoolActivity.ActivityChans[record.ID] != nil) {
 						e.PoolActivity.ActivityChans[record.ID] <- disTasks
-						// todo  这里存在任务分配不出的情况；以及chan未初始化好的情况
+					} else {
+						time.Sleep(time.Second)
+						e.SigNewTasks <- disTasks
+						// 如果还未初始化好，则将任务从新给回
 					}
 				}
+			}
+			// 没有分配完，则重新分配
+			if bestTasksIndex <= len(bestTasks)-1 {
+				time.Sleep(time.Microsecond * 100)
+				e.SigNewTasks <- bestTasks[bestTasksIndex:]
+			}
+			if simpleTasksIndex <= len(simpleTasks)-1 {
+				time.Sleep(time.Microsecond * 100)
+				e.SigNewTasks <- simpleTasks[simpleTasksIndex:]
 			}
 
 		default:
@@ -64,17 +77,22 @@ func (e *TaskExeServer) waitForNewTasks() {
 }
 func (e *TaskExeServer) restoreUsefulActivity() {
 	e.PoolActivity.FetchRecordsFromStore()
-	for _, record := range e.PoolActivity.StoreMem {
-		recordJson, err := e.getRecordInfo(record.Channel, record.UrlKey)
-		if err == nil {
-			e.getRecordFromJson(record, record.Channel, record.UrlKey, record.BestLuckPos, recordJson)
-		}
+	for _, record := range e.getRecords() {
+		e.updateRecord(record)
 		if record.Finished {
 			e.PoolActivity.Delete(record)
 		} else {
 			e.PoolActivity.Update(record)
 			go e.processActivity(record)
 		}
+	}
+	//e.updateActivityPoolStatus()
+}
+
+func (e *TaskExeServer) updateRecord(record *ActivityRecord) {
+	recordJson, err := e.getRecordInfo(record.Channel, record.UrlKey)
+	if err == nil {
+		e.getRecordFromJson(record, record.Channel, record.UrlKey, record.BestLuckPos, recordJson)
 	}
 }
 
@@ -195,12 +213,13 @@ func (e *TaskExeServer) getRecordInfo(channel string, urlKey string) (recordJson
 
 // 每条记录自己单独的抢红包逻辑
 func (e *TaskExeServer) processActivity(record *ActivityRecord) {
-	e.Logln("new exe:", record.ID)
+	//e.Logln("new exe:", record.ID)
 
 	//初始化信号
 	sigNewTasks := make(chan []SigNewTask, 10)
 	e.PoolActivity.ActivityChans[record.ID] = sigNewTasks
-	e.updateActivityPoolStatus()
+	//e.updateActivityPoolStatus()
+	e.updateSelfActivityStatus(record)
 
 	var tasks []SigNewTask
 	var task SigNewTask
@@ -208,35 +227,41 @@ func (e *TaskExeServer) processActivity(record *ActivityRecord) {
 	for {
 		select {
 		case tasks = <-sigNewTasks:
-			e.Logln("收到已分配新的任务")
-			record.WaitingForJobs = false
-			//对任务进行一次排序，如果有best任务，name要放在合适的位置去循环。但是也不一定，因为别人也在一起抢
-			e.Logln("接收到新的任务", tasks[0].ID)
-			bestTask, hasBestTask := e.pickBestTask(tasks)
-			simpleTasks := e.pickSimpleTasks(tasks)
+			if len(tasks) > 0 {
+				record.WaitingForJobs = false
+				//对任务进行一次排序，如果有best任务，name要放在合适的位置去循环。但是也不一定，因为别人也在一起抢
+				e.Logf("新任务%v,%v", tasks[0].ID, record.ID)
+				bestTask, hasBestTask := e.pickBestTask(tasks)
+				simpleTasks := e.pickSimpleTasks(tasks)
 
-			if len(simpleTasks) > 0 {
-				for i := 0; i < len(simpleTasks); i++ {
-					task = simpleTasks[i]
-					//根据任务类型，执行任务，并修改自己的状态，更新整体的状态
-					//task.Mobile, task.ID
-					e.goodLuckLogic(task, record)
-					if record.NextBestIf && hasBestTask {
+				if len(simpleTasks) > 0 {
+					for i := 0; i < len(simpleTasks); i++ {
+						task = simpleTasks[i]
+						//根据任务类型，执行任务，并修改自己的状态，更新整体的状态
+						//task.Mobile, task.ID
+						e.goodLuckLogic(task, record)
+						if record.NextBestIf && hasBestTask {
+							e.goodLuckLogic(bestTask, record)
+						}
+						if record.Finished {
+							ifFinished = true
+							e.PoolActivity.Delete(record)
+							//e.updateActivityPoolStatus()
+							break
+						}
+					}
+					// 任务全部完成也要通知下
+					//e.updateActivityPoolStatus()
+					e.updateSelfActivityStatus(record)
+				} else {
+					if hasBestTask {
 						e.goodLuckLogic(bestTask, record)
 					}
-					if record.Finished {
-						ifFinished = true
-						e.PoolActivity.Delete(record)
-						e.updateActivityPoolStatus()
-						break
-					}
 				}
-				// 任务全部完成也要通知下
-				e.updateActivityPoolStatus()
 			} else {
-				if hasBestTask {
-					e.goodLuckLogic(bestTask, record)
-				}
+				time.Sleep(time.Second * 10)
+				e.updateRecord(record)
+				e.updateSelfActivityStatus(record)
 			}
 
 		default:
@@ -255,11 +280,11 @@ func (e *TaskExeServer) updateActivityPoolStatus() {
 	//var oldValue SigPoolActivityStatus
 	//oldValue = *e.ActivityStatus
 	e.ActivityStatus = &SigPoolActivityStatus{}
-	e.ActivityStatus.PoolSize = len(e.PoolActivity.StoreMem)
+	e.ActivityStatus.PoolSize = len(e.getRecords())
 	e.ActivityStatus.BestLuckChance = 0
-	for _, record := range e.PoolActivity.StoreMem {
+	for _, record := range e.getRecords() {
 		if record.WaitingForJobs {
-			if record.NextBestIf {
+			if record.LeftBestIf {
 				e.ActivityStatus.BestLuckChance += 1
 			} else {
 				e.ActivityStatus.SimpleLuckChance += record.LeftSimpleNum
@@ -272,10 +297,28 @@ func (e *TaskExeServer) updateActivityPoolStatus() {
 	//}
 	e.SigPoolActivityStatus <- e.ActivityStatus
 	e.ActivityLocker.Unlock()
+}
+
+func (e *TaskExeServer) updateSelfActivityStatus(record *ActivityRecord) {
+	activityStatus := &SigPoolActivityStatus{}
+	activityStatus.BestLuckChance = 0
+	if record.LeftBestIf {
+		activityStatus.BestLuckChance = 1
+	}
+	if record.LeftSimpleNum > 0 {
+		activityStatus.SimpleLuckChance = record.LeftSimpleNum
+	}
+	if activityStatus.BestLuckChance+activityStatus.SimpleLuckChance > 0 {
+		activityStatus.ID = record.ID
+		activityStatus.Chan = e.PoolActivity.ActivityChans[record.ID]
+		e.SigPoolActivityStatus <- activityStatus
+	}
 
 }
+
 func (e *TaskExeServer) goodLuckLogic(task SigNewTask, record *ActivityRecord) (result int) {
 	recordJson, err := e.goodLuckAction(task.Mobile, record.Channel, record.UrlKey)
+	//fmt.Printf("%v", recordJson)
 
 	if err != nil {
 		//执行失败，标记任务失败，不减次数
@@ -292,8 +335,9 @@ func (e *TaskExeServer) goodLuckLogic(task SigNewTask, record *ActivityRecord) (
 	common.Log.INFO.Printf("status:%v", recordJson.Code)
 	go func() {
 		e.TaskResult <- TaskResult{
-			Task:   &task,
-			Status: recordJson.Code,
+			Task:     &task,
+			Status:   recordJson.Code,
+			RecordID: record.ID,
 		}
 	}()
 
@@ -360,12 +404,13 @@ func (e *TaskExeServer) Logln(v ...interface{}) {
 func (e *TaskExeServer) Logf(format string, v ...interface{}) {
 	common.Log.INFO.Printf("[exe]"+format, v...)
 }
-func (e *TaskExeServer) repeatBroadcastStatusChange() {
-	for {
-		e.updateActivityPoolStatus()
-		time.Sleep(time.Second * 1)
-	}
-}
+
+//func (e *TaskExeServer) repeatBroadcastStatusChange() {
+//	for {
+//		e.updateActivityPoolStatus()
+//		time.Sleep(time.Second * 1)
+//	}
+//}
 
 const (
 	totalPos            = 20

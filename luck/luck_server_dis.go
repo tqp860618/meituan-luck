@@ -1,6 +1,7 @@
 package luck
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -9,15 +10,18 @@ import (
 
 func (d *TaskDisServer) Start() {
 	d.Logln("分配服务器已启动")
+	d.restoreUnExeTasks()
 	go d.handleActivityStatusChange()
-	go d.restoreUnExeTasks()
+
 }
 
 func (d *TaskDisServer) restoreUnExeTasks() {
 	var tasks []SigNewTask
 	query := fmt.Sprintf("SELECT id,status,mobile,time_gen,uid,wxid,type FROM mt_task WHERE status=1 ORDER BY id ASC")
 	d.DBConn.Select(&tasks, query)
-	d.SigNewTasks <- tasks
+	if len(tasks) > 0 {
+		d.SigNewTasks <- tasks
+	}
 }
 
 // 接收执行服务器的状态变化，好进行每次迭代分配任务
@@ -26,39 +30,81 @@ func (d *TaskDisServer) handleActivityStatusChange() {
 	for {
 		select {
 		case status = <-d.SigPoolActivityStatus:
-			d.Logln("接收到执行服务器状态变化", status)
-
-			d.ActivityStatus = status
-			//最新的status
-			bestNum := d.ActivityStatus.BestLuckChance
-			simpleNum := d.ActivityStatus.SimpleLuckChance
-
-			if bestNum > 0 {
-				err, tasksBest := d.getTasks(TYPE_TASK_BEST, bestNum)
-				if err != nil {
-					common.Log.ERROR.Println(err)
-				}
-				d.SigNewTasks <- tasksBest
-
+			//d.Logln("接收到执行服务器状态变化", status)
+			status.RepeatTry = 10
+			err := d.recordStatusChangeAction(status)
+			if err != nil {
+				status.Chan <- []SigNewTask{}
 			}
-			if simpleNum > 0 {
-				err, tasksSimple := d.getTasks(TYPE_TASK_SIMPLE, simpleNum)
-				if err != nil {
-					common.Log.ERROR.Println(err)
-				}
 
-				d.SigNewTasks <- tasksSimple
-			}
 		default:
 			time.Sleep(time.Microsecond * 20)
 		}
 	}
 }
-func (d *TaskDisServer) getTasks(cateType int, num int) (err error, tasks []SigNewTask) {
-	query := fmt.Sprintf("SELECT id,status,mobile,time_gen,uid,wxid,type FROM mt_task WHERE type=%d and (status=0 or status=4) ORDER BY id ASC LIMIT 0,%d;", cateType, num)
-	err = d.DBConn.Select(&tasks, query)
-	if len(tasks) > 0 {
-		err = d.updateTasksStatus(tasks, STATUS_TASK_OUT)
+func (d *TaskDisServer) recordStatusChangeAction(status *SigPoolActivityStatus) (err error) {
+	//最新的status
+	bestNum := status.BestLuckChance
+	simpleNum := status.SimpleLuckChance
+	var tastsRst []SigNewTask
+	if bestNum > 0 {
+		err, tasksBest := d.getTasks(TYPE_TASK_BEST, bestNum, status.ID)
+		if err != nil {
+			common.Log.ERROR.Println(err)
+			return err
+		}
+		if len(tasksBest) > 0 {
+			tastsRst = append(tastsRst, tasksBest...)
+
+		} else {
+			if status.RepeatTry <= 0 {
+				err = errors.New("no tasks")
+				return err
+			}
+			status.RepeatTry -= 1
+			time.Sleep(time.Second * 1)
+			d.recordStatusChangeAction(status)
+		}
+
+	}
+	if simpleNum > 0 {
+		err, tasksSimple := d.getTasks(TYPE_TASK_SIMPLE, simpleNum, status.ID)
+		if err != nil {
+			common.Log.ERROR.Println(err)
+		}
+		if len(tasksSimple) > 0 {
+			tastsRst = append(tastsRst, tasksSimple...)
+
+		} else {
+			time.Sleep(time.Second * 1)
+			d.recordStatusChangeAction(status)
+		}
+	}
+	if len(tastsRst) > 0 {
+		status.Chan <- tastsRst
+	}
+
+	return
+}
+func (d *TaskDisServer) getTasks(cateType int, num int, recordID string) (err error, tasks []SigNewTask) {
+	var tasksTmp []SigNewTask
+	query := fmt.Sprintf("SELECT id,status,mobile,time_gen,uid,wxid,type,precord_ids FROM mt_task WHERE type=%d and (status=0 or status=4) GROUP BY uid ORDER BY id ASC LIMIT 0,%d;", cateType, num*8)
+	//fmt.Println(query)
+	err = d.DBConn.Select(&tasksTmp, query)
+	if len(tasksTmp) > 0 {
+		for i := 0; i < len(tasksTmp); i++ {
+			if strings.IndexAny(tasksTmp[i].PrecordIdsString, recordID) == -1 {
+				tasks = append(tasks, tasksTmp[i])
+			}
+		}
+		if len(tasks) >= num {
+			tasks = tasks[:num]
+		}
+
+		if len(tasks) > 0 {
+			err = d.updateTasksStatus(tasks, STATUS_TASK_OUT)
+		}
+
 	}
 
 	if err != nil {
@@ -73,6 +119,7 @@ func (d *TaskDisServer) updateTasksStatus(tasks []SigNewTask, status int) (err e
 		ids = append(ids, fmt.Sprintf("%d", tasks[i].ID))
 	}
 	query := fmt.Sprintf("UPDATE mt_task SET status=%d where id in(%s);", status, strings.Join(ids, ","))
+	//fmt.Println(query)
 	_, err = d.DBConn.Exec(query)
 	return
 }

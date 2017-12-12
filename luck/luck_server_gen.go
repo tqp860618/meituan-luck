@@ -27,7 +27,12 @@ func (g *TaskGenServer) waitForTaskResults() {
 			case RST_USER_TODAY_FULL:
 				g.callbackUserTodayFull(result.Task.UserID)
 			case RST_USER_PICKED:
-				g.callbackUserPicked(result)
+				go func() {
+					//todo 如果保证一个任务不会多次取相同的用户。设置一个键用于存储失败过的任务
+					time.Sleep(time.Second * 1)
+					g.callbackUserPicked(result)
+				}()
+
 			case RST_NO_LEFT:
 				g.callbackNotLeft(result)
 			case RST_CALL_ERR:
@@ -76,7 +81,7 @@ func (g *TaskGenServer) callbackUserTodayFull(uid int64) (err error) {
 }
 func (g *TaskGenServer) callbackUserPicked(r TaskResult) (err error) {
 	//本任务设置为取回，用于从新取回
-	query := fmt.Sprintf("UPDATE mt_task set status=%d where id=%d;", STATUS_TASK_RESTORE, r.Task.ID)
+	query := fmt.Sprintf("UPDATE mt_task set status=%d, precord_ids=concat(precord_ids,'%s') where id=%d;", STATUS_TASK_RESTORE, r.RecordID, r.Task.ID)
 	_, err = g.DBConn.Exec(query)
 	if err != nil {
 		return
@@ -199,7 +204,7 @@ func (g *TaskGenServer) genDailySimpleTask() (err error) {
 	dailyMaxGenNum := g.SimplePickNumDaily
 	now := time.Now().Unix()
 	for {
-		query := fmt.Sprintf("SELECT id,mobile,pay_end_time,luck_left_num,wxid FROM mt_user WHERE luck_left_num>0 AND status=1 LIMIT %d,%d;", (page-1)*limit, limit)
+		query := fmt.Sprintf("SELECT id,mobile,pay_end_time,luck_left_num,wxid FROM mt_user WHERE (luck_left_num>0 or pay_end_time>%d) AND status=1 LIMIT %d,%d;", now, (page-1)*limit, limit)
 		err = g.DBConn.Select(&users, query)
 		if err != nil {
 			return
@@ -208,6 +213,9 @@ func (g *TaskGenServer) genDailySimpleTask() (err error) {
 			user := users[i]
 			userCanGenNum := user.LuckLeftNum
 			if userCanGenNum > dailyMaxGenNum {
+				userCanGenNum = dailyMaxGenNum
+			}
+			if user.PayEndTime > int(now) {
 				userCanGenNum = dailyMaxGenNum
 			}
 			for userCanGenNum > 0 {

@@ -152,13 +152,16 @@ func (luck *Luck) StatusReport() {
 		}
 		taskUndoBest := tmps51[0].Count
 
-		luck.Logf("______________________________________")
-		luck.Logf("工作活动数:%v", workingActivitiesNum)
-		luck.Logf("等待活动数：%d 其中还有位置best:%d simple:%d", waitingActivitiesNum, waitingBestNum, waitingSimpleNum)
-		luck.Logf("用户总数：%d", userAllNum)
-		luck.Logf("任务数：未取出:%d(s%d b%d) 取出未执行:%d(s%d b%d) 失败:%d 取回:%d 完成:%d", taskUnPickSimple+taskUnPickBest, taskUnPickSimple, taskUnPickBest, taskUndoSimple+taskUndoBest, taskUndoSimple, taskUndoBest, taskFailed, taskRestore, taskFinished)
-
-		luck.Logf("______________________________________")
+		luck.Logf("______________________________________________________________________________________________________________")
+		luck.Logf("活动数(工作)\t活动数(等待)\t用户总数\t任务数(未取出)\t任务数(等待执行)\t失败数\t取回数\t成功数\t")
+		luck.Logf("%d\t\t%d(s%d,b%d)\t%d\t\t%d(s%d,b%d)\t%d(s%d,b%d)\t\t%d\t%d\t%d",
+			workingActivitiesNum,
+			waitingActivitiesNum, waitingSimpleNum, waitingBestNum,
+			userAllNum,
+			taskUnPickSimple+taskUnPickBest, taskUnPickSimple, taskUnPickBest,
+			taskUndoSimple+taskUndoBest, taskUndoSimple, taskUndoBest,
+			taskFailed, taskRestore, taskFinished,
+		)
 
 		time.Sleep(time.Second)
 	}

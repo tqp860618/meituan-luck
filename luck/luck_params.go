@@ -24,13 +24,15 @@ type SigNewActivity struct {
 }
 
 type SigNewTask struct {
-	ID       int64  `db:"id"`
-	Status   int    `db:"status"`
-	Mobile   string `db:"mobile"`
-	TimeGen  int    `db:"time_gen"`
-	UserID   int64  `db:"uid"`
-	WechatID string `db:"wxid"`
-	Type     int    `db:"type"`
+	ID               int64  `db:"id"`
+	Status           int    `db:"status"`
+	Mobile           string `db:"mobile"`
+	TimeGen          int    `db:"time_gen"`
+	UserID           int64  `db:"uid"`
+	WechatID         string `db:"wxid"`
+	Type             int    `db:"type"`
+	PrecordIdsString string `db:"precord_ids"`
+	PrecordIds       []string
 }
 
 // PoolActivity 的当前状态信息
@@ -39,6 +41,9 @@ type SigPoolActivityStatus struct {
 	PoolSize         int
 	BestLuckChance   int
 	SimpleLuckChance int
+	ID               string
+	Chan             chan []SigNewTask
+	RepeatTry        int
 }
 
 type TaskGenServer struct {
@@ -63,8 +68,9 @@ type TaskExeServer struct {
 	TaskResult            chan TaskResult
 }
 type TaskResult struct {
-	Task   *SigNewTask
-	Status int
+	Task     *SigNewTask
+	Status   int
+	RecordID string
 }
 type MsgServer struct {
 	LuckServer     *Luck
