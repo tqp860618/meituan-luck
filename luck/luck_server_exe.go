@@ -3,7 +3,6 @@ package luck
 import (
 	"encoding/json"
 	"errors"
-	"fmt"
 	"github.com/spf13/viper"
 	"io/ioutil"
 	"math"
@@ -36,6 +35,9 @@ func (e *TaskExeServer) waitForNewTasks() {
 			//进行二次分配到具体的activity上
 			bestTasks := e.pickBestTasks(tasks)
 			simpleTasks := e.pickSimpleTasks(tasks)
+			if len(simpleTasks) < 0 && len(bestTasks) < 0 {
+				break
+			}
 			bestTasksIndex := 0
 			simpleTasksIndex := 0
 			records := e.getRecords()
@@ -55,7 +57,7 @@ func (e *TaskExeServer) waitForNewTasks() {
 						if dsize < 0 {
 							dsize = 0
 						}
-						fmt.Println(dsize, simpleTasksIndex, simpleTasks)
+						//fmt.Println(dsize, simpleTasksIndex, simpleTasks)
 						if simpleTasksIndex+dsize < len(simpleTasks) {
 							disTasks = append(disTasks, simpleTasks[simpleTasksIndex:simpleTasksIndex+dsize]...)
 							simpleTasksIndex += dsize
