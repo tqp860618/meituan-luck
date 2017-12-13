@@ -162,6 +162,7 @@ func (e *TaskExeServer) addNewActivity(channel string, urlKey string, luckBestPo
 		e.Logf("get record info error: %v", err)
 		return
 	}
+	e.Logln(recordJson)
 	if recordJson.Finished {
 		e.Logln("该活动已结束")
 		err = errors.New("该活动已结束")
