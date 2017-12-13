@@ -51,6 +51,7 @@ func (e *TaskExeServer) waitForNewTasks() {
 						if dsize+simpleTasksIndex > len(simpleTasks)-1 {
 							dsize = len(simpleTasks) - 1
 						}
+						println(dsize, simpleTasksIndex, simpleTasks)
 						disTasks = append(disTasks, simpleTasks[simpleTasksIndex:dsize]...)
 						simpleTasksIndex += dsize
 					}
