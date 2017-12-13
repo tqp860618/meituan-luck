@@ -25,14 +25,15 @@ func (g *TaskGenServer) waitForTaskResults() {
 			case RST_USER_NOT_EXIST:
 				g.callbackUserNotEXIST(result.Task.UserID)
 			case RST_USER_TODAY_FULL:
-				g.callbackUserTodayFull(result.Task.UserID)
+				g.callbackUserTodayFull(result)
 			case RST_USER_PICKED:
 				go func() {
 					//todo 如果保证一个任务不会多次取相同的用户。设置一个键用于存储失败过的任务
 					time.Sleep(time.Second * 1)
 					g.callbackUserPicked(result)
 				}()
-
+			case RST_NOT_GOT:
+				g.callbackNotLeft(result)
 			case RST_NO_LEFT:
 				g.callbackNotLeft(result)
 			case RST_CALL_ERR:
@@ -50,7 +51,7 @@ func (g *TaskGenServer) waitForTaskResults() {
 }
 func (g *TaskGenServer) callbackUserNotEXIST(uid int64) (err error) {
 	//将用户所有未分配额任务取消
-	query := fmt.Sprintf("UPDATE mt_task set status=%d where uid=%d AND status=%d;", STATUS_TASK_FAIL, uid, STATUS_TASK_ENTER)
+	query := fmt.Sprintf("UPDATE mt_task set status=%d where uid=%d;", STATUS_TASK_FAIL, uid)
 	_, err = g.DBConn.Exec(query)
 	if err != nil {
 		return
@@ -68,9 +69,15 @@ func (g *TaskGenServer) callbackUserNotEXIST(uid int64) (err error) {
 	return
 }
 
-func (g *TaskGenServer) callbackUserTodayFull(uid int64) (err error) {
+func (g *TaskGenServer) callbackUserTodayFull(result TaskResult) (err error) {
 	//将用户所有未分配额任务取消
-	query := fmt.Sprintf("UPDATE mt_task set status=%d where uid=%d AND status=%d;", STATUS_TASK_FAIL, uid, STATUS_TASK_ENTER)
+	query := fmt.Sprintf("UPDATE mt_task set status=%d where uid=%d AND status=%d;", STATUS_TASK_FAIL, result.Task.UserID, STATUS_TASK_ENTER)
+	_, err = g.DBConn.Exec(query)
+	if err != nil {
+		return
+	}
+
+	query = fmt.Sprintf("UPDATE mt_task set status=%d where id=%d;", STATUS_TASK_FAIL, result.Task.ID)
 	_, err = g.DBConn.Exec(query)
 	if err != nil {
 		return
@@ -167,7 +174,7 @@ func (g *TaskGenServer) genDailyTask() {
 		} else {
 			needToGen = true
 		}
-		if needToGen {
+		if needToGen || true {
 			go g.genDailySimpleTask()
 			go g.genDailyBestTask()
 			todayGenned = true

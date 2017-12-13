@@ -105,11 +105,12 @@ type ActivityRecord struct {
 	WaitingForJobs bool
 }
 type ActivityInfoJson struct {
-	CouponsCount  int  `json:"couponsCount"`
-	BestLuckPrice int  `json:"bestLuck"`
-	CanContinue   bool `json:"canContinue"`
-	Finished      bool `json:"finished"`
-	Code          int  `json:"code"`
+	CouponsCount  int    `json:"couponsCount"`
+	BestLuckPrice int    `json:"bestLuck"`
+	CanContinue   bool   `json:"canContinue"`
+	Finished      bool   `json:"finished"`
+	Code          int    `json:"code"`
+	Msg           string `json:"msg"`
 }
 
 type BaseJsonRst struct {

@@ -79,8 +79,11 @@ func (p *StorePool) GetAll() (res []ActivityRecord) {
 		item := ActivityRecord{
 			WaitingForJobs: true,
 		}
-		item.UnSerialize(string(replyI[i].([]byte)))
-		res = append(res, item)
+		if replyI[i] != nil {
+			item.UnSerialize(string(replyI[i].([]byte)))
+			res = append(res, item)
+		}
+
 	}
 	if err != nil {
 		common.Log.INFO.Println(err)

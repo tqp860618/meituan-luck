@@ -5,6 +5,7 @@ import (
 	"errors"
 	"github.com/spf13/viper"
 	"io/ioutil"
+	"math"
 	"net/http"
 	"strings"
 	"time"
@@ -36,7 +37,8 @@ func (e *TaskExeServer) waitForNewTasks() {
 			simpleTasks := e.pickSimpleTasks(tasks)
 			bestTasksIndex := 0
 			simpleTasksIndex := 0
-			for _, record := range e.getRecords() {
+			records := e.getRecords()
+			for _, record := range records {
 				if record.WaitingForJobs {
 					var disTasks []SigNewTask
 					//防止越界，并没有分配足够多的任务
@@ -44,18 +46,22 @@ func (e *TaskExeServer) waitForNewTasks() {
 						disTasks = append(disTasks, bestTasks[bestTasksIndex])
 						bestTasksIndex += 1
 					}
-					if record.LeftSimpleNum > 0 && simpleTasksIndex+record.LeftSimpleNum <= len(simpleTasks) {
-						disTasks = append(disTasks, simpleTasks[simpleTasksIndex:simpleTasksIndex+record.LeftSimpleNum]...)
-						simpleTasksIndex += record.LeftSimpleNum
+					if record.LeftSimpleNum > 0 {
+						dsize := int(math.Min(float64(len(simpleTasks)), float64(record.LeftSimpleNum)))
+						disTasks = append(disTasks, simpleTasks[simpleTasksIndex:dsize]...)
+						simpleTasksIndex += dsize
 					}
 					//如果 chan未初始化好的情况
-					if len(disTasks) > 0 && (e.PoolActivity.ActivityChans[record.ID] != nil) {
-						e.PoolActivity.ActivityChans[record.ID] <- disTasks
-					} else {
-						time.Sleep(time.Second)
-						e.SigNewTasks <- disTasks
-						// 如果还未初始化好，则将任务从新给回
+					if len(disTasks) > 0 {
+						if len(disTasks) > 0 && (e.PoolActivity.ActivityChans[record.ID] != nil) {
+							e.PoolActivity.ActivityChans[record.ID] <- disTasks
+						} else {
+							time.Sleep(time.Second)
+							e.SigNewTasks <- disTasks
+							// 如果还未初始化好，则将任务从新给回
+						}
 					}
+
 				}
 			}
 			// 没有分配完，则重新分配
@@ -419,6 +425,7 @@ const (
 	RST_USER_PICKED     = 4002 //直接标记任务取回，下次可以重取，总次数不减
 	RST_NO_LEFT         = 4000 //直接标记任务取回，下次可以重取，总次数不减
 	RST_ACTIVITY_PASS   = 2002 //直接标记任务取回，下次可以重取，总次数不减
+	RST_NOT_GOT         = 2007 //没领到
 	RST_CALL_ERR        = 9999 // 执行直接错误，可能HTTP
-	RST_OK              = 0    //执行成功
+	RST_OK              = 1    //执行成功
 )

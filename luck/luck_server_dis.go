@@ -88,9 +88,16 @@ func (d *TaskDisServer) recordStatusChangeAction(status *SigPoolActivityStatus) 
 }
 func (d *TaskDisServer) getTasks(cateType int, num int, recordID string) (err error, tasks []SigNewTask) {
 	var tasksTmp []SigNewTask
-	query := fmt.Sprintf("SELECT id,status,mobile,time_gen,uid,wxid,type,precord_ids FROM mt_task WHERE type=%d and (status=0 or status=4) GROUP BY uid ORDER BY id ASC LIMIT 0,%d;", cateType, num*8)
+	var tasksTmp2 []SigNewTask
+	query := fmt.Sprintf("SELECT id,status,mobile,time_gen,uid,wxid,type,precord_ids FROM mt_task WHERE type=%d and status=0 GROUP BY uid ORDER BY id ASC LIMIT 0,%d;", cateType, num*8)
 	//fmt.Println(query)
 	err = d.DBConn.Select(&tasksTmp, query)
+
+	query = fmt.Sprintf("SELECT id,status,mobile,time_gen,uid,wxid,type,precord_ids FROM mt_task WHERE type=%d and status=4 GROUP BY uid ORDER BY id ASC LIMIT 0,%d;", cateType, num*8)
+	//fmt.Println(query)
+	err = d.DBConn.Select(&tasksTmp2, query)
+	tasksTmp = append(tasksTmp, tasksTmp2...)
+
 	if len(tasksTmp) > 0 {
 		for i := 0; i < len(tasksTmp); i++ {
 			if strings.IndexAny(tasksTmp[i].PrecordIdsString, recordID) == -1 {
