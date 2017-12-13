@@ -48,6 +48,9 @@ func (e *TaskExeServer) waitForNewTasks() {
 					}
 					if record.LeftSimpleNum > 0 {
 						dsize := int(math.Min(float64(len(simpleTasks)), float64(record.LeftSimpleNum)))
+						if dsize+simpleTasksIndex > len(simpleTasks)-1 {
+							dsize = len(simpleTasks) - 1
+						}
 						disTasks = append(disTasks, simpleTasks[simpleTasksIndex:dsize]...)
 						simpleTasksIndex += dsize
 					}
