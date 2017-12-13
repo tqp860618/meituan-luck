@@ -1,0 +1,25 @@
+{
+  "weixin_server": {
+    "log_file": "logs/weixin_%s.txt",
+    "save_to_file": true,
+    "auto_reply": true,
+    "auto_reply_src": false,
+    "reply_msg": [
+      "您好，正忙碌。您稍后。--[微信终端版]",
+      "对不起，您所呼叫的用户不在手机旁,稍后会给你答复[自动回复]",
+      "主人离开中，稍后回来。--[微信终端版]"
+    ],
+    "meituan_luck_server": "http://127.0.0.1:6036/new_activity/[luckNum]/[fromUid]/[channel]/[urlKey]",
+    "msg_server_address": "127.0.0.1:5036"
+  },
+  "redis_address": "127.0.0.1:6379",
+  "luck_server": {
+    "server_address": "127.0.0.1:6036",
+    "encrypt_address": "http://127.0.0.1:5321/encrypt/[text]",
+    "decrypt_address": "http://127.0.0.1:5321/decrypt/[text]",
+    "luck_address": "http://127.0.0.1:5321/luck/[userPhone]/[channel]/[urlKey]",
+    "info_address": "http://127.0.0.1:5321/info/[channel]/[urlKey]",
+    "meituan_luck_db": "root:123456@tcp(127.0.0.1:3306)/meituan_luck",
+    "num_simple_pick": 3
+  }
+}
