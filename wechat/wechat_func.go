@@ -359,6 +359,7 @@ func (w *Wechat) SyncDaemon(msgIn chan Message) {
 		case 0:
 			switch resp.Selector {
 			case 2, 3: //有消息,未知
+				time.Sleep(time.Second)
 				msgs, err := w.getSyncMsg()
 
 				if err != nil {
