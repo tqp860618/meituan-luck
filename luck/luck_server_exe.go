@@ -56,8 +56,11 @@ func (e *TaskExeServer) waitForNewTasks() {
 							dsize = 0
 						}
 						fmt.Println(dsize, simpleTasksIndex, simpleTasks)
-						disTasks = append(disTasks, simpleTasks[simpleTasksIndex:simpleTasksIndex+dsize]...)
-						simpleTasksIndex += dsize
+						if simpleTasksIndex+dsize < len(simpleTasks) {
+							disTasks = append(disTasks, simpleTasks[simpleTasksIndex:simpleTasksIndex+dsize]...)
+							simpleTasksIndex += dsize
+						}
+
 					}
 					//如果 chan未初始化好的情况
 					if len(disTasks) > 0 {
