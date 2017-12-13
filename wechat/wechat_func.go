@@ -453,10 +453,13 @@ func (w *Wechat) SyncDaemon(msgIn chan Message) {
 			case 4: //通讯录更新
 				w.GetContacts()
 			case 7:
+				w.getSyncMsg()
 				common.Log.INFO.Printf("在手机上操作了微信")
 			case 0:
+				w.getSyncMsg()
 				common.Log.INFO.Printf("消息:无事件")
 			default:
+				w.getSyncMsg()
 				common.Log.INFO.Printf("未知消息1：%v", resp)
 			}
 		default:
