@@ -174,7 +174,7 @@ func (g *TaskGenServer) genDailyTask() {
 		} else {
 			needToGen = true
 		}
-		if needToGen || true {
+		if needToGen {
 			go g.genDailySimpleTask()
 			go g.genDailyBestTask()
 			todayGenned = true
