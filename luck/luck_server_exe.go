@@ -3,6 +3,7 @@ package luck
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"github.com/spf13/viper"
 	"io/ioutil"
 	"math"
@@ -51,7 +52,7 @@ func (e *TaskExeServer) waitForNewTasks() {
 						if dsize+simpleTasksIndex > len(simpleTasks) {
 							dsize = len(simpleTasks)
 						}
-						println(dsize, simpleTasksIndex, simpleTasks)
+						fmt.Println(dsize, simpleTasksIndex, simpleTasks)
 						disTasks = append(disTasks, simpleTasks[simpleTasksIndex:dsize]...)
 						simpleTasksIndex += dsize
 					}
