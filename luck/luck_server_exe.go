@@ -76,11 +76,11 @@ func (e *TaskExeServer) waitForNewTasks() {
 				}
 			}
 			// 没有分配完，则重新分配
-			if bestTasksIndex <= len(bestTasks)-1 {
+			if bestTasksIndex < len(bestTasks)-1 {
 				time.Sleep(time.Microsecond * 100)
 				e.SigNewTasks <- bestTasks[bestTasksIndex:]
 			}
-			if simpleTasksIndex <= len(simpleTasks)-1 {
+			if simpleTasksIndex < len(simpleTasks)-1 {
 				time.Sleep(time.Microsecond * 100)
 				e.SigNewTasks <- simpleTasks[simpleTasksIndex:]
 			}
