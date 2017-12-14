@@ -71,6 +71,8 @@ type TaskResult struct {
 	Task     *SigNewTask
 	Status   int
 	RecordID string
+	Luck     *MyLuckData
+	Surprise *MyLuckData
 }
 type MsgServer struct {
 	LuckServer     *Luck
@@ -105,12 +107,20 @@ type ActivityRecord struct {
 	WaitingForJobs bool
 }
 type ActivityInfoJson struct {
-	CouponsCount  int    `json:"couponsCount"`
-	BestLuckPrice int    `json:"bestLuck"`
-	CanContinue   bool   `json:"canContinue"`
-	Finished      bool   `json:"finished"`
-	Code          int    `json:"code"`
-	Msg           string `json:"msg"`
+	CouponsCount  int         `json:"couponsCount"`
+	BestLuckPrice int         `json:"bestLuck"`
+	CanContinue   bool        `json:"canContinue"`
+	Finished      bool        `json:"finished"`
+	Code          int         `json:"code"`
+	Msg           string      `json:"msg"`
+	Luck          *MyLuckData `json:"luck"`
+	Surprise      *MyLuckData `json:"luck"`
+}
+type MyLuckData struct {
+	Mount  int    `json:"mount"`
+	Limit  int    `json:"limit"`
+	IsBest bool   `json:"isBest"`
+	Name   string `json:"name"`
 }
 
 type BaseJsonRst struct {

@@ -10,9 +10,16 @@ import (
 
 func (d *TaskDisServer) Start() {
 	d.Logln("分配服务器已启动")
-	d.restoreUnExeTasks()
+	//d.restoreUnExeTasks()
+	d.unsetUnExeTasks()
 	go d.handleActivityStatusChange()
 
+}
+
+func (d *TaskDisServer) unsetUnExeTasks() {
+	query := fmt.Sprintf("UPDATE mt_task SET status=0 where status=1;")
+	//fmt.Println(query)
+	_, _ = d.DBConn.Exec(query)
 }
 
 func (d *TaskDisServer) restoreUnExeTasks() {

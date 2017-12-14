@@ -2,6 +2,7 @@ package luck
 
 import (
 	"fmt"
+	"github.com/jinzhu/now"
 	"math/rand"
 	"strconv"
 	"time"
@@ -15,6 +16,11 @@ func (g *TaskGenServer) Start() {
 	go g.handleNewUpgradeTask()
 	go g.handleNewHandedTask()
 	go g.waitForTaskResults()
+}
+func (g *TaskGenServer) delOldTasks() {
+	yesterday := now.BeginningOfDay().Unix() - 24*60*60
+	query := fmt.Sprintf("DELETE FROM mt_task WHERE time_gen<%d;", yesterday)
+	_, _ = g.DBConn.Exec(query)
 }
 func (g *TaskGenServer) waitForTaskResults() {
 	var result TaskResult
@@ -141,21 +147,30 @@ func (g *TaskGenServer) callbackSystemErr(r TaskResult) (err error) {
 }
 
 func (g *TaskGenServer) callbackOK(r TaskResult) (err error) {
+	nowUnix := time.Now().Unix()
 	//本任务设置为完成
-	query := fmt.Sprintf("UPDATE mt_task set status=%d where id=%d;", STATUS_TASK_FINISH, r.Task.ID)
+	query := fmt.Sprintf("UPDATE mt_task set status=%d,luck=%d,time_done=%d where id=%d;", STATUS_TASK_FINISH, r.Luck.Mount, nowUnix, r.Task.ID)
+	_, err = g.DBConn.Exec(query)
+	if err != nil {
+		return
+	}
+
+	// 生成成功记录
+	query = fmt.Sprintf("INSERT INTO mt_history(`uid`,`time`,`luck`,`is_best`,`suprise_mount`) VALUES(%d,%d,%d,%d,%d);", r.Task.UserID, nowUnix, r.Luck.Mount, r.Luck.IsBest, r.Surprise.Mount)
 	_, err = g.DBConn.Exec(query)
 	if err != nil {
 		return
 	}
 
 	//减少相应的次数
-	now := time.Now().Unix()
+
 	//只处理非付费用户的次数
-	query = fmt.Sprintf("UPDATE mt_user set luck_left_time=luck_left_time-1 where id=%d AND pay_end_time<%d;", r.Task.UserID, now)
+	query = fmt.Sprintf("UPDATE mt_user set luck_left_time=luck_left_time-1 where id=%d AND pay_end_time<%d;", r.Task.UserID, nowUnix)
 	_, err = g.DBConn.Exec(query)
 	if err != nil {
 		return
 	}
+
 	return
 }
 
@@ -175,6 +190,7 @@ func (g *TaskGenServer) genDailyTask() {
 			needToGen = true
 		}
 		if needToGen {
+			g.delOldTasks()
 			go g.genDailySimpleTask()
 			go g.genDailyBestTask()
 			todayGenned = true

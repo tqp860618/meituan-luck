@@ -349,6 +349,8 @@ func (e *TaskExeServer) goodLuckLogic(task SigNewTask, record *ActivityRecord) (
 			CanContinue:   false,
 			Finished:      false,
 			Code:          RST_CALL_ERR,
+			Luck:          nil,
+			Surprise:      nil,
 		}
 		//return
 	}
@@ -358,6 +360,8 @@ func (e *TaskExeServer) goodLuckLogic(task SigNewTask, record *ActivityRecord) (
 			Task:     &task,
 			Status:   recordJson.Code,
 			RecordID: record.ID,
+			Luck:     recordJson.Luck,
+			Surprise: recordJson.Surprise,
 		}
 	}()
 
