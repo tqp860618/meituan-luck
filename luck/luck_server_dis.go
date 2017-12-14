@@ -70,7 +70,7 @@ func (d *TaskDisServer) recordStatusChangeAction(status *SigPoolActivityStatus) 
 			}
 			status.RepeatTry -= 1
 			time.Sleep(time.Second * 1)
-			d.recordStatusChangeAction(status)
+			go d.recordStatusChangeAction(status)
 		}
 
 	}
@@ -84,7 +84,7 @@ func (d *TaskDisServer) recordStatusChangeAction(status *SigPoolActivityStatus) 
 
 		} else {
 			time.Sleep(time.Second * 1)
-			d.recordStatusChangeAction(status)
+			go d.recordStatusChangeAction(status)
 		}
 	}
 	if len(tastsRst) > 0 {

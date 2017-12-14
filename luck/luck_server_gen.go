@@ -20,6 +20,7 @@ func (g *TaskGenServer) Start() {
 func (g *TaskGenServer) delOldTasks() {
 	yesterday := now.BeginningOfDay().Unix() - 24*60*60
 	query := fmt.Sprintf("DELETE FROM mt_task WHERE time_gen<%d;", yesterday)
+	//fmt.Println(query)
 	_, _ = g.DBConn.Exec(query)
 }
 func (g *TaskGenServer) waitForTaskResults() {
@@ -29,7 +30,7 @@ func (g *TaskGenServer) waitForTaskResults() {
 		case result = <-g.TaskResult:
 			switch result.Status {
 			case RST_USER_NOT_EXIST:
-				g.callbackUserNotEXIST(result.Task.UserID)
+				g.callbackUserNotEXIST(result)
 			case RST_USER_TODAY_FULL:
 				g.callbackUserTodayFull(result)
 			case RST_USER_PICKED:
@@ -55,15 +56,15 @@ func (g *TaskGenServer) waitForTaskResults() {
 		}
 	}
 }
-func (g *TaskGenServer) callbackUserNotEXIST(uid int64) (err error) {
+func (g *TaskGenServer) callbackUserNotEXIST(result TaskResult) (err error) {
 	//将用户所有未分配额任务取消
-	query := fmt.Sprintf("UPDATE mt_task set status=%d where uid=%d;", STATUS_TASK_FAIL, uid)
+	query := fmt.Sprintf("UPDATE mt_task set status=%d,err_code=%d where uid=%d;", STATUS_TASK_FAIL, result.Status, result.Task.UserID)
 	_, err = g.DBConn.Exec(query)
 	if err != nil {
 		return
 	}
 	//标记用户状态为不可用
-	query = fmt.Sprintf("UPDATE mt_user set status=0 where id=%d;", uid)
+	query = fmt.Sprintf("UPDATE mt_user set status=0 where id=%d;", result.Task.UserID)
 	_, err = g.DBConn.Exec(query)
 	if err != nil {
 		return
@@ -83,7 +84,7 @@ func (g *TaskGenServer) callbackUserTodayFull(result TaskResult) (err error) {
 		return
 	}
 
-	query = fmt.Sprintf("UPDATE mt_task set status=%d where id=%d;", STATUS_TASK_FAIL, result.Task.ID)
+	query = fmt.Sprintf("UPDATE mt_task set status=%d,err_code=%d where id=%d;", STATUS_TASK_FAIL, result.Status, result.Task.ID)
 	_, err = g.DBConn.Exec(query)
 	if err != nil {
 		return
@@ -137,7 +138,7 @@ func (g *TaskGenServer) callbackActivityEnd(r TaskResult) (err error) {
 }
 func (g *TaskGenServer) callbackSystemErr(r TaskResult) (err error) {
 	//本任务设置为取回，用于从新取回
-	query := fmt.Sprintf("UPDATE mt_task set status=%d where id=%d;", STATUS_TASK_RESTORE, r.Task.ID)
+	query := fmt.Sprintf("UPDATE mt_task set status=%d,err_code=%d where id=%d;", STATUS_TASK_RESTORE, r.Status, r.Task.ID)
 	_, err = g.DBConn.Exec(query)
 	if err != nil {
 		return
@@ -149,6 +150,7 @@ func (g *TaskGenServer) callbackSystemErr(r TaskResult) (err error) {
 func (g *TaskGenServer) callbackOK(r TaskResult) (err error) {
 	nowUnix := time.Now().Unix()
 	//本任务设置为完成
+	fmt.Println(r)
 	query := fmt.Sprintf("UPDATE mt_task set status=%d,luck=%d,time_done=%d where id=%d;", STATUS_TASK_FINISH, r.Luck.Mount, nowUnix, r.Task.ID)
 	_, err = g.DBConn.Exec(query)
 	if err != nil {
@@ -156,7 +158,8 @@ func (g *TaskGenServer) callbackOK(r TaskResult) (err error) {
 	}
 
 	// 生成成功记录
-	query = fmt.Sprintf("INSERT INTO mt_history(`uid`,`time`,`luck`,`is_best`,`suprise_mount`) VALUES(%d,%d,%d,%d,%d);", r.Task.UserID, nowUnix, r.Luck.Mount, r.Luck.IsBest, r.Surprise.Mount)
+	query = fmt.Sprintf("INSERT INTO mt_history(`uid`,`time`,`luck`,`is_best`,`suprise_mount`) VALUES(%d,%d,%d,%t,%d);", r.Task.UserID, nowUnix, r.Luck.Mount, r.Luck.IsBest, r.Surprise.Mount)
+	fmt.Println(query)
 	_, err = g.DBConn.Exec(query)
 	if err != nil {
 		return

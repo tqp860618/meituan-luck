@@ -114,7 +114,7 @@ type ActivityInfoJson struct {
 	Code          int         `json:"code"`
 	Msg           string      `json:"msg"`
 	Luck          *MyLuckData `json:"luck"`
-	Surprise      *MyLuckData `json:"luck"`
+	Surprise      *MyLuckData `json:"surprise"`
 }
 type MyLuckData struct {
 	Mount  int    `json:"mount"`
