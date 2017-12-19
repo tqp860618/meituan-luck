@@ -352,6 +352,7 @@ func (w *Wechat) SyncDaemon(msgIn chan Message) {
 		}
 		switch resp.RetCode {
 		case 1100:
+			w.getSyncMsg()
 			common.Log.WARN.Printf("从微信上登出")
 		case 1101:
 			common.Log.ERROR.Fatalln("从其他设备上登陆")
