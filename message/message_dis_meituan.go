@@ -186,7 +186,7 @@ func (m *MsgDis) addToMarketingGroup(msg *wechat.Message, srv string, roomNick s
 
 		// 邀请用户到群组
 		if nowGroupName != "" {
-			groupRole := "1、本群不聊闲，仅可发布网易红彩方案或自行组织合买；\n2、任何广告、情色内容不得出现，一律剔除；\n3、请注意私下交易风险；\4、不得把群内方案分享出去，一经发现永久剔除"
+			groupRole := "1 本群不聊闲，仅可发布网易红彩方案或自行组织合买；\n2 任何广告、情色内容不得出现，一律剔除；\n3 请注意私下交易风险；\n4 不得把群内方案分享出去，一经发现永久剔除"
 			go m.sendMsg(srv, nowGroupName, "群主邀请【"+msg.FromUserNickName+"】加群")
 			go m.sendMsg(srv, nowGroupName, msg.FromUserNickName+"，新成员请注意本群规则："+groupRole)
 			go m.addRoomMember(srv, msg.FromUserName, nowGroupName)
