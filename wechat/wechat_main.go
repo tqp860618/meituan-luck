@@ -54,14 +54,15 @@ func Main() {
 		return
 	}
 
-	msgIn := make(chan Message, maxChanSize)
+	msgIn := make(chan *Message, maxChanSize)
 	msgOut := make(chan MessageOut, maxChanSize)
 	autoChan := make(chan int, 1)
+	ipPortChan := make(chan string, 1)
 
 	go wechat.SyncDaemon(msgIn)
 	go wechat.MsgDaemon(msgOut, autoChan)
-	go wechat.MsgProcessDaemon(msgIn)
-	go wechat.ServerDaemon()
+	go wechat.MsgOut(msgIn, ipPortChan)
+	go wechat.ServerDaemon(ipPortChan)
 	common.Log.INFO.Println("Http服务器已开启")
 
 	// 启动UI线程

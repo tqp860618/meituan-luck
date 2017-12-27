@@ -48,10 +48,11 @@ func NewWechat() *Wechat {
 			Jar:       jar,
 			Timeout:   1 * time.Minute,
 		},
-		Request:    new(BaseRequest),
-		Root:       root,
-		SaveFolder: path.Join(root, "saved"),
-		MemberMap:  make(map[string]Member),
+		Request:         new(BaseRequest),
+		Root:            root,
+		SaveFolder:      path.Join(root, "saved"),
+		MemberMap:       make(map[string]Member),
+		GroupMemberList: make(map[string]Member),
 	}
 
 }
@@ -219,9 +220,23 @@ func (w *Wechat) Login() (err error) {
 	for _, contact := range newResp.ContactList {
 		w.InitContactList = append(w.InitContactList, contact)
 		// fixme 在此将初始化的记录加入到聊天人列表
+		if contact.UserName[:2] == "@@" {
+			w.updateGroupMembers([]Member{contact})
+		}
 	}
 
 	w.ChatSet = strings.Split(newResp.ChatSet, ",")
+	if len(w.ChatSet) > 0 {
+		var ids []string
+		for i := 0; i < len(w.ChatSet); i++ {
+			if len(w.ChatSet[i]) >= 2 && w.ChatSet[i][:2] == "@@" {
+				ids = append(ids, w.ChatSet[i])
+			}
+		}
+		if len(ids) > 0 {
+			w.GetRoomsMembers(ids)
+		}
+	}
 	w.User = newResp.User
 	w.SyncKey = newResp.SyncKey
 	w.SyncKeyStr = ""
@@ -240,6 +255,13 @@ func (w *Wechat) Login() (err error) {
 	return
 }
 
+func (w *Wechat) updateGroupMembers(members []Member) {
+	for i := 0; i < len(members); i++ {
+		if members[i].UserName[:2] == "@@" {
+			w.GroupMemberList[members[i].UserName] = members[i]
+		}
+	}
+}
 func (w *Wechat) GetContacts() (err error) {
 
 	name, resp := "webwxgetcontact", new(MemberResp)
@@ -252,9 +274,9 @@ func (w *Wechat) GetContacts() (err error) {
 	w.TotalMember = resp.MemberCount
 	for _, member := range w.MemberList {
 		w.MemberMap[member.UserName] = member
+		//群聊
 		if member.UserName[:2] == "@@" {
-			w.GroupMemberList = append(w.GroupMemberList, member) //群聊
-
+			w.updateGroupMembers([]Member{member})
 		} else if member.VerifyFlag&8 != 0 {
 			w.PublicUserList = append(w.PublicUserList, member) //公众号
 		} else if member.UserName[:1] == "@" {
@@ -265,6 +287,18 @@ func (w *Wechat) GetContacts() (err error) {
 	mb.NickName = w.User.NickName
 	mb.UserName = w.User.UserName
 	w.MemberMap[w.User.UserName] = mb
+
+	if len(w.ChatSet) != 0 {
+		var ids []string
+		for i := 0; i < len(w.ChatSet); i++ {
+			if len(w.ChatSet[i]) >= 2 && w.ChatSet[i][:2] == "@@" {
+				ids = append(ids, w.ChatSet[i])
+			}
+		}
+		if len(ids) > 0 {
+			w.GetRoomsMembers(ids)
+		}
+	}
 	for _, user := range w.ChatSet {
 		exist := false
 		for _, initUser := range w.InitContactList {
@@ -276,12 +310,11 @@ func (w *Wechat) GetContacts() (err error) {
 		if !exist {
 			value, ok := w.MemberMap[user]
 			if ok {
-				contact := User{
+				contact := Member{
 					UserName:  value.UserName,
 					NickName:  value.NickName,
 					Signature: value.Signature,
 				}
-
 				w.InitContactList = append(w.InitContactList, contact)
 			}
 		}
@@ -291,26 +324,10 @@ func (w *Wechat) GetContacts() (err error) {
 	return
 }
 
-func (w *Wechat) getWechatRoomMember(roomID, userId string) (roomName, userName string, err error) {
-	apiUrl := fmt.Sprintf("%s/webwxbatchgetcontact?type=ex&r=%s&pass_ticket=%s", w.BaseUri, w.GetUnixTime(), w.Request.PassTicket)
-	params := make(map[string]interface{})
-	params["BaseRequest"] = *w.Request
-	params["Count"] = 1
-	params["List"] = []map[string]string{}
-	var l []map[string]string
-	params["List"] = append(l, map[string]string{
-		"UserName":   roomID,
-		"ChatRoomId": "",
-	})
-	fmt.Println(apiUrl, params)
-
-	return "", "", nil
-}
-
-func (w *Wechat) getSyncMsg() (msgs []interface{}, err error) {
+func (w *Wechat) getSyncMsg() (msgs []*Message, err error) {
 	name := "webwxsync"
 	syncResp := new(SyncResp)
-	urlRequest := fmt.Sprintf("%s/%s?sid=%s&pass_ticket=%s&skey=%s", w.BaseUri, name, w.Request.Wxsid, w.Request.PassTicket, w.Request.Skey)
+	urlRequest := fmt.Sprintf("%s/%s?sid=%s&pass_ticket=%s&skey=%s", w.BaseUri, name, w.Request.Sid, w.Request.PassTicket, w.Request.Skey)
 	params := SyncParams{
 		BaseRequest: *w.Request,
 		SyncKey:     w.SyncKey,
@@ -336,13 +353,26 @@ func (w *Wechat) getSyncMsg() (msgs []interface{}, err error) {
 			w.SyncKeyStr += "|" + strconv.Itoa(item.Key) + "_" + strconv.Itoa(item.Val)
 		}
 	}
-
 	msgs = syncResp.AddMsgList
+	for _, msg := range msgs {
+		if nickNameFrom, ok := w.MemberMap[msg.FromUserName]; ok {
+			msg.FromUserNickName = nickNameFrom.NickName
+			msg.FromUserHeadImgUrl = nickNameFrom.HeadImgUrl
+		}
+		if nickNameTo, ok := w.MemberMap[msg.ToUserName]; ok {
+			msg.ToUserNickName = nickNameTo.NickName
+			msg.ToUserHeadImgUrl = nickNameTo.HeadImgUrl
+		}
+		msg.Content = strings.Replace(msg.Content, "&lt;", "<", -1)
+		msg.Content = strings.Replace(msg.Content, "&gt;", ">", -1)
+		msg.Content = strings.Replace(msg.Content, " ", " ", 1)
+	}
+
 	return
 }
 
 //同步守护goroutine
-func (w *Wechat) SyncDaemon(msgIn chan Message) {
+func (w *Wechat) SyncDaemon(msgIn chan *Message) {
 	for {
 		w.lastCheckTs = time.Now()
 		resp, err := w.SyncCheck()
@@ -350,131 +380,92 @@ func (w *Wechat) SyncDaemon(msgIn chan Message) {
 			common.Log.WARN.Printf("w.SyncCheck() with error:%+v\n", err)
 			continue
 		}
-		switch resp.RetCode {
-		case 1100:
-			w.getSyncMsg()
-			common.Log.WARN.Printf("从微信上登出")
-		case 1101:
+		if resp.RetCode == 1100 && resp.Selector == 4 {
+			w.GetContacts()
+		} else if resp.RetCode == 1101 {
 			common.Log.ERROR.Fatalln("从其他设备上登陆")
-			break
-		case 0:
-			switch resp.Selector {
-			case 2, 3: //有消息,未知
-				time.Sleep(time.Second)
-				msgs, err := w.getSyncMsg()
-
-				if err != nil {
-					common.Log.ERROR.Printf("w.getSyncMsg() error:%+v\n", err)
-				}
-
-				for _, m := range msgs {
-					msg := Message{}
-					msgType := m.(map[string]interface{})["MsgType"].(float64)
-					msg.MsgType = int(msgType)
-					msg.FromUserName = m.(map[string]interface{})["FromUserName"].(string)
-					if nickNameFrom, ok := w.MemberMap[msg.FromUserName]; ok {
-						msg.FromUserNickName = nickNameFrom.NickName
-					}
-
-					msg.ToUserName = m.(map[string]interface{})["ToUserName"].(string)
-					if nickNameTo, ok := w.MemberMap[msg.ToUserName]; ok {
-						msg.ToUserNickName = nickNameTo.NickName
-					}
-
-					msg.Content = m.(map[string]interface{})["Content"].(string)
-					msg.Content = strings.Replace(msg.Content, "&lt;", "<", -1)
-					msg.Content = strings.Replace(msg.Content, "&gt;", ">", -1)
-					msg.Content = strings.Replace(msg.Content, " ", " ", 1)
-					switch msg.MsgType {
-					case 1:
-						//文字
-						if msg.FromUserName[:2] == "@@" {
-							//群消息，暂时不处理
-							if msg.FromUserNickName == "" {
-								contentSlice := strings.Split(msg.Content, ":<br/>")
-								msg.Content = contentSlice[1]
-
-							}
-						} else {
-							if w.AutoReply {
-								go w.SendMsg(msg.FromUserName, w.AutoReplyMsg(), false)
-							}
-						}
-						if msg.ToUserNickName == "" {
-							if user, ok := w.MemberMap[msg.ToUserName]; ok {
-								msg.ToUserNickName = user.NickName
-							}
-
-						}
-						if msg.FromUserNickName == "" {
-							if user, ok := w.MemberMap[msg.FromUserNickName]; ok {
-								msg.FromUserNickName = user.NickName
-							}
-						}
-						msgIn <- msg
-					case 3:
-						//图片
-					case 34:
-						//语音
-					case 47:
-						//动画表情
-					case 49:
-						//链接
-						msg.Content = strings.Replace(msg.Content, "<br/>", "", -1)
-						msgLink := MessageLink{}
-						err := xml.Unmarshal([]byte(msg.Content), &msgLink)
-						if err != nil {
-							common.Log.ERROR.Printf("%v", err)
-						}
-						msg.Content = msgLink.Title
-						msg.Url = msgLink.Url
-						msgIn <- msg
-					case 51:
-						common.Log.INFO.Printf("联系人信息消息：%v，%v", msg, m)
-						msgIn <- msg
-						//获取联系人信息成功
-					case 62:
-						common.Log.INFO.Printf("小饰品消息：%v,%v", msg, m)
-						msgIn <- msg
-						//获得一段小视频
-					case 10002:
-						common.Log.INFO.Printf("撤回消息：%v,%v", msg, m)
-						msgIn <- msg
-						//撤回一条消息
-					case 10000:
-						common.Log.INFO.Printf("红包消息：%v,%v", msg, m)
-						msgIn <- msg
-						//红包消息
-					default:
-						common.Log.INFO.Printf("未处理消息：%v,%v", msg, m)
-						msgIn <- msg
-					}
-
-				}
-			case 4: //通讯录更新
-				w.GetContacts()
-			case 7:
-				w.getSyncMsg()
-				common.Log.INFO.Printf("在手机上操作了微信")
-			case 0:
-				w.getSyncMsg()
-				common.Log.INFO.Printf("消息:无事件")
-			default:
-				w.getSyncMsg()
-				common.Log.INFO.Printf("未知消息1：%v", resp)
-			}
-		default:
-			common.Log.INFO.Printf("未知消息2：%v", resp)
-			time.Sleep(time.Second * 4)
-
-			continue
 		}
-
+		w.UpPackMsg(msgIn)
 		if time.Now().Sub(w.lastCheckTs).Seconds() <= 20 {
 			time.Sleep(time.Second * time.Duration(time.Now().Sub(w.lastCheckTs).Seconds()))
 		}
+	}
+}
+
+func (w *Wechat) UpPackMsg(msgIn chan *Message) {
+	msgs, err := w.getSyncMsg()
+	if err != nil {
+		common.Log.ERROR.Printf("w.getSyncMsg() error:%+v\n", err)
+	}
+	for _, msg := range msgs {
+
+		switch msg.MsgType {
+		case 1:
+			//文字
+			if msg.FromUserName[:2] == "@@" {
+				//群消息，暂时不处理
+				if msg.FromUserNickName == "" {
+					contentSlice := strings.Split(msg.Content, ":<br/>")
+					msg.Content = contentSlice[1]
+				}
+			} else {
+				if w.AutoReply {
+					go w.SendMsg(msg.FromUserName, w.AutoReplyMsg(), false)
+				}
+			}
+			if msg.ToUserNickName == "" {
+				if user, ok := w.MemberMap[msg.ToUserName]; ok {
+					msg.ToUserNickName = user.NickName
+				}
+			}
+			if msg.FromUserNickName == "" {
+				if user, ok := w.MemberMap[msg.FromUserNickName]; ok {
+					msg.FromUserNickName = user.NickName
+				}
+			}
+			msgIn <- msg
+		case 3:
+			//图片
+		case 34:
+			//语音
+		case 47:
+			//动画表情
+		case 49:
+			//链接
+			msg.Content = strings.Replace(msg.Content, "<br/>", "", -1)
+			msgLink := MessageLink{}
+			err := xml.Unmarshal([]byte(msg.Content), &msgLink)
+			if err != nil {
+				common.Log.ERROR.Printf("%v", err)
+			} else {
+				msg.Content = msgLink.Title
+				msg.Url = msgLink.Url
+			}
+
+			msgIn <- msg
+		case 51:
+			common.Log.INFO.Printf("联系人信息消息：%v", msg)
+			//获取联系人信息成功
+		case 62:
+			common.Log.INFO.Printf("小视频消息：%v", msg)
+			msgIn <- msg
+			//获得一段小视频
+		case 10002:
+			common.Log.INFO.Printf("撤回消息：%v", msg)
+			msgIn <- msg
+			//撤回一条消息
+		case 10000:
+			common.Log.INFO.Printf("提示类消息：%v", msg)
+			//devctang刚刚把你添加到通讯录，现在可以开始聊天了。
+			msgIn <- msg
+			//红包消息
+		default:
+			common.Log.INFO.Printf("未处理消息：%v", msg)
+			msgIn <- msg
+		}
 
 	}
+
 }
 
 func (w *Wechat) MsgDaemon(msgOut chan MessageOut, autoReply chan int) {
@@ -536,8 +527,8 @@ func (w *Wechat) SyncCheck() (resp SyncCheckResp, err error) {
 	params := url.Values{}
 	curTime := strconv.FormatInt(time.Now().Unix(), 10)
 	params.Set("r", curTime)
-	params.Set("sid", w.Request.Wxsid)
-	params.Set("uin", strconv.FormatInt(int64(w.Request.Wxuin), 10))
+	params.Set("sid", w.Request.Sid)
+	params.Set("uin", strconv.FormatInt(int64(w.Request.Uin), 10))
 	params.Set("skey", w.Request.Skey)
 	params.Set("deviceid", w.Request.DeviceID)
 	params.Set("synckey", w.SyncKeyStr)
@@ -585,7 +576,7 @@ func (w *Wechat) SendMsg(toUserName, message string, isFile bool) (err error) {
 	apiUrl := fmt.Sprintf("%s/webwxsendmsg?pass_ticket=%s", w.BaseUri, w.Request.PassTicket)
 	clientMsgId := strconv.Itoa(w.GetUnixTime()) + "0" + strconv.Itoa(rand.Int())[3:6]
 	params := make(map[string]interface{})
-	params["BaseRequest"] = w.BaseRequest
+	params["BaseRequest"] = w.Request
 	msg := make(map[string]interface{})
 	msg["Type"] = 1
 	msg["Content"] = message
@@ -618,14 +609,167 @@ func (w *Wechat) SendImage(name, fileName string) (err error) {
 
 	return
 }
+func (w *Wechat) GetRoomsMembers(roomIDs []string) (roomsInfo []Member, err error) {
+	resp := new(BatchContactResp)
+	apiUrl := fmt.Sprintf("%s/webwxbatchgetcontact?type=ex&r=%s&pass_ticket=%s", w.BaseUri, w.GetUnixTime(), w.Request.PassTicket)
+	params := make(map[string]interface{})
+	params["BaseRequest"] = w.Request
+	params["Count"] = len(roomIDs)
+	params["List"] = []map[string]string{}
+	var l []map[string]string
+	for i := 0; i < len(roomIDs); i++ {
+		l = append(l, map[string]string{
+			"UserName":        roomIDs[i],
+			"EncryChatRoomId": "",
+		})
+	}
+	params["List"] = l
 
-func (w *Wechat) AddMember(name string) (err error) {
-
+	data, _ := json.Marshal(params)
+	if err = w.Send(apiUrl, bytes.NewReader(data), resp); err != nil {
+		common.Log.WARN.Printf("w.AddRoomMember(%s,%v):%v", apiUrl, string(data), err)
+		return
+	}
+	//if nickNameTo, ok := w.MemberMap[msg.ToUserName]; ok {
+	if len(resp.ContactList) == 0 {
+		err = errors.New("not exist")
+		return
+	}
+	roomsInfo = resp.ContactList
+	w.updateGroupMembers(roomsInfo)
+	return
+}
+func (w *Wechat) GetRoomMembers(roomID string) (roomInfo Member, err error) {
+	infos, err := w.GetRoomsMembers([]string{roomID})
+	if err != nil {
+		return
+	}
+	if len(infos) < 0 {
+		err = errors.New("not exist")
+	}
+	roomInfo = infos[0]
 	return
 }
 
-func (w *Wechat) CreateRoom(name string) (err error) {
+func (w *Wechat) GetRoomsByTag(tag string) (rooms []map[string]interface{}) {
+	//w.GroupList
+	for _, member := range w.GroupMemberList {
+		if strings.Index(member.NickName, tag) != -1 {
+			rooms = append(rooms, map[string]interface{}{
+				"GroupName": member.UserName,
+				"NickName":  member.NickName,
+				"Count":     member.MemberCount,
+			})
+		}
+	}
+	return
+}
+func (w *Wechat) GetRoomMembersCount(roomID string) int {
+	if roomInfo, ok := w.GetRoomMembers(roomID); ok != nil {
+		return len(roomInfo.MemberList)
+	}
+	return 0
+}
 
+func (w *Wechat) AddRoomMember(roomName string, memberList []string) (err error) {
+	resp := new(Response)
+
+	apiUrl := fmt.Sprintf("%s/webwxupdatechatroom?pass_ticket=%s&fun=addmember", w.BaseUri, w.Request.PassTicket)
+	params := make(map[string]interface{})
+	params["BaseRequest"] = w.Request
+	params["AddMemberList"] = strings.Join(memberList, ",")
+	params["ChatRoomName"] = roomName
+	data, _ := json.Marshal(params)
+	if err := w.Send(apiUrl, bytes.NewReader(data), resp); err != nil {
+		common.Log.WARN.Printf("w.AddRoomMember(%s,%v):%v", apiUrl, string(data), err)
+	}
+	return
+}
+
+func (w *Wechat) RenameRoom(roomName, newNickName string) (err error) {
+	resp := new(Response)
+	apiUrl := fmt.Sprintf("%s/webwxcreatechatroom?pass_ticket=%s&fun=modtopic", w.BaseUri, w.Request.PassTicket)
+	params := make(map[string]interface{})
+	params["BaseRequest"] = w.Request
+
+	params["ChatRoomName"] = roomName
+	params["NewTopic"] = newNickName
+
+	data, _ := json.Marshal(params)
+	if err := w.Send(apiUrl, bytes.NewReader(data), resp); err != nil {
+		common.Log.WARN.Printf("w.RenameRoom(%s,%v):%v", apiUrl, string(data), err)
+	}
+	return
+}
+func (w *Wechat) getInit2Members() (members []string) {
+	for i := 0; i < len(w.MemberList); i++ {
+		if strings.Index(w.MemberList[i].RemarkName, "_##_") != -1 {
+			members = append(members, w.MemberList[i].UserName)
+		}
+	}
+	return
+}
+func (w *Wechat) getRoomLeaders() (members []string) {
+	for i := 0; i < len(w.MemberList); i++ {
+		if strings.Index(w.MemberList[i].RemarkName, "_%%_") != -1 {
+			members = append(members, w.MemberList[i].UserName)
+		}
+	}
+	return
+}
+
+func (w *Wechat) CreateRoom(nickName string) (roomName string, err error) {
+	initMembers := w.getInit2Members()
+	if len(initMembers) < 2 {
+		err = errors.New("at least with 2 users init")
+		return
+	}
+	leaders := w.getRoomLeaders()
+	addMembers := append(initMembers, leaders...)
+
+	resp := new(CreateRoomResp)
+	apiUrl := fmt.Sprintf("%s/webwxcreatechatroom?pass_ticket=%s&fun=addmember", w.BaseUri, w.Request.PassTicket)
+	params := make(map[string]interface{})
+	params["BaseRequest"] = w.Request
+	params["MemberList"] = []map[string]string{}
+	var l []map[string]string
+
+	for i := 0; i < len(addMembers); i++ {
+		l = append(l, map[string]string{
+			"UserName": addMembers[i],
+		})
+	}
+	params["MemberList"] = l
+	params["MemberCount"] = len(l)
+	params["Topic"] = nickName
+	data, _ := json.Marshal(params)
+	if err = w.Send(apiUrl, bytes.NewReader(data), resp); err != nil {
+		common.Log.WARN.Printf("w.AddRoomMember(%s,%v):%v", apiUrl, string(data), err)
+		return
+	}
+	if resp.ChatRoomName == "" {
+		err = errors.New(resp.BaseResponse.ErrMsg)
+		return
+	}
+	roomName = resp.ChatRoomName
+	w.DelMembersFromRoom(roomName, initMembers)
+	//err = w.RenameRoom(roomName, nickName)
+	w.GetRoomsMembers([]string{roomName})
+	return
+}
+
+func (w *Wechat) DelMembersFromRoom(roomName string, memberIds []string) (err error) {
+	resp := new(MsgResp)
+	apiUrl := fmt.Sprintf("%s/webwxupdatechatroom?pass_ticket=%s&fun=delmember", w.BaseUri, w.Request.PassTicket)
+	params := make(map[string]interface{})
+	params["BaseRequest"] = w.Request
+	params["ChatRoomName"] = roomName
+	params["DelMemberList"] = strings.Join(memberIds, ",")
+	data, _ := json.Marshal(params)
+	if err = w.Send(apiUrl, bytes.NewReader(data), resp); err != nil {
+		common.Log.WARN.Printf("w.DelMembersFromRoom(%s,%v):%v", apiUrl, string(data), err)
+		return
+	}
 	return
 }
 

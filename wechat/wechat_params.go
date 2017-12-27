@@ -1,6 +1,7 @@
 package wechat
 
 import (
+	"encoding/json"
 	"encoding/xml"
 	"fmt"
 	"net/http"
@@ -22,27 +23,38 @@ type MessageLink struct {
 }
 
 type Message struct {
-	FromUserName         string
-	PlayLength           int
-	RecommendInfo        []string
-	Content              string
-	StatusNotifyUserName string
+	ImgStatus            int
+	MediaId              string
 	StatusNotifyCode     int
+	EncryFileName        string
 	Status               int
+	HasProductId         int
+	Ticket               string
+	SubMsgType           int
+	FromUserName         string
+	MsgType              int
+	CreateTime           int
+	FileSize             string
+	AppMsgType           int
+	StatusNotifyUserName string
+	ForwardFlag          int
+	MsgId                string
+	Content              string
+	PlayLength           int
+	FileName             string
+	AppInfo              AppInfo
+	ImgHeight            int
+	NewMsgId             int
+	Url                  string
+	RecommendInfo        interface{}
+	ImgWidth             int
+	OriContent           string
+	ToUserNickName       string
 	VoiceLength          int
 	ToUserName           string
-	ForwardFlag          int
-	AppMsgType           int
-	AppInfo              AppInfo
-	Url                  string
-	ImgStatus            int
-	MsgType              int
-	ImgHeight            int
-	MediaId              string
-	FileName             string
-	FileSize             string
 	FromUserNickName     string
-	ToUserNickName       string
+	FromUserHeadImgUrl   string
+	ToUserHeadImgUrl     string
 }
 
 func (m Message) String() string {
@@ -54,7 +66,8 @@ func (m Message) String() string {
 	if to == "" {
 		to = m.ToUserName
 	}
-	return fmt.Sprintf("[%d]%s->%s:%s\n", m.MsgType, from, to, m.Content)
+	jsonStr, _ := json.Marshal(m)
+	return fmt.Sprintf("[%d]%s->%s:%s\n", m.MsgType, from, to, jsonStr)
 }
 
 type AppInfo struct {
@@ -94,8 +107,8 @@ type BaseRequest struct {
 	Ret        int      `xml:"ret" json:"-"`
 	Message    string   `xml:"message" json:"-"`
 	Skey       string   `xml:"skey" json:"Skey"`
-	Wxsid      string   `xml:"wxsid" json:"Sid"`
-	Wxuin      int64    `xml:"wxuin" json:"Uin"`
+	Sid        string   `xml:"wxsid" json:"Sid"`
+	Uin        int64    `xml:"wxuin" json:"Uin"`
 	PassTicket string   `xml:"pass_ticket" json:"-"`
 	DeviceID   string   `xml:"-" json:"DeviceID"`
 }
@@ -108,20 +121,31 @@ type BaseResponse struct {
 type MsgResp struct {
 	Response
 }
+type BatchContactResp struct {
+	Response
+	ContactList []Member `json:"ContactList"`
+}
+
+type CreateRoomResp struct {
+	Response
+	ChatRoomName string `json:"ChatRoomName"`
+	MemberCount  int    `json:"MemberCount"`
+	MemberList   []User `json:"MemberList"`
+}
 
 type InitResp struct {
 	Response
-	User                User    `json:"User"`
-	Count               int     `json:"Count"`
-	ContactList         []User  `json:"ContactList"`
-	SyncKey             SyncKey `json:"SyncKey"`
-	ChatSet             string  `json:"ChatSet"`
-	SKey                string  `json:"SKey"`
-	ClientVersion       int     `json:"ClientVersion"`
-	SystemTime          int     `json:"SystemTime"`
-	GrayScale           int     `json:"GrayScale"`
-	InviteStartCount    int     `json:"InviteStartCount"`
-	MPSubscribeMsgCount int     `json:"MPSubscribeMsgCount"`
+	User                User     `json:"User"`
+	Count               int      `json:"Count"`
+	ContactList         []Member `json:"ContactList"`
+	SyncKey             SyncKey  `json:"SyncKey"`
+	ChatSet             string   `json:"ChatSet"`
+	SKey                string   `json:"SKey"`
+	ClientVersion       int      `json:"ClientVersion"`
+	SystemTime          int      `json:"SystemTime"`
+	GrayScale           int      `json:"GrayScale"`
+	InviteStartCount    int      `json:"InviteStartCount"`
+	MPSubscribeMsgCount int      `json:"MPSubscribeMsgCount"`
 	//MPSubscribeMsgList  string  `json:"MPSubscribeMsgList"`
 	ClickReportInterval int `json:"ClickReportInterval"`
 }
@@ -244,9 +268,9 @@ type SyncParams struct {
 
 type SyncResp struct {
 	Response
-	SyncKey      SyncKey       `json:"SyncKey"`
-	ContinueFlag int           `json:"ContinueFlag"`
-	AddMsgList   []interface{} `json:"AddMsgList"`
+	SyncKey      SyncKey    `json:"SyncKey"`
+	ContinueFlag int        `json:"ContinueFlag"`
+	AddMsgList   []*Message `json:"AddMsgList"`
 }
 
 type NotifyResp struct {
@@ -295,13 +319,13 @@ type Wechat struct {
 	SyncHost        string
 	SyncKey         SyncKey
 	Users           []string
-	InitContactList []User   //谈话的人
-	MemberList      []Member //
-	ContactList     []Member //好友
-	GroupList       []string //群
-	GroupMemberList []Member //群友
-	PublicUserList  []Member //公众号
-	SpecialUserList []Member //特殊账号
+	InitContactList []Member          //谈话的人
+	MemberList      []Member          //
+	ContactList     []Member          //好友
+	GroupList       []string          //群
+	GroupMemberList map[string]Member //群友
+	PublicUserList  []Member          //公众号
+	SpecialUserList []Member          //特殊账号
 
 	AutoReplyMode bool //default false
 	AutoOpen      bool

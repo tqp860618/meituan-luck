@@ -107,7 +107,7 @@ func (d *TaskDisServer) getTasks(cateType int, num int, recordID string) (err er
 
 	if len(tasksTmp) > 0 {
 		for i := 0; i < len(tasksTmp); i++ {
-			if strings.IndexAny(tasksTmp[i].PrecordIdsString, recordID) == -1 {
+			if strings.Index(tasksTmp[i].PrecordIdsString, recordID) == -1 {
 				tasks = append(tasks, tasksTmp[i])
 			}
 		}
