@@ -19,7 +19,7 @@ func (m *MsgDis) Close() {
 	m.KVStore.Close()
 }
 func (m *MsgDis) initKVStore() (store *skv.KVStore, err error) {
-	store, err = skv.Open("./message.db")
+	store, err = skv.Open("/store/wechat_robot.db")
 	if err != nil {
 		return
 	}
@@ -61,6 +61,7 @@ func (m *MsgDis) MsgHandler(source string, msg *wechat.Message, srv string) {
 	case common.Md5("tanggo"):
 		go m.MeituanHongbaoReceiveHandle(msg, srv)
 	case common.Md5("小雪"): // 美团红包注册服务
+		go m.MeituanRegUserHandle(msg, srv)
 	case common.Md5("小菜头"): // 彩票
 		go m.CaipiaoNewGroupUserHandle(msg, srv)
 	}

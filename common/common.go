@@ -6,8 +6,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"math/rand"
 	"net/http"
 	"strings"
+	"time"
 )
 
 type Caller interface {
@@ -39,6 +41,13 @@ func Md5(str string) string {
 	h := crypto.MD5.New()
 	io.WriteString(h, str)
 	return fmt.Sprintf("%x", h.Sum(nil))
+}
+
+func Today() string {
+	return time.Now().Format(`2006-01-02`)
+}
+func SleepRandn(microsecond int64) {
+	time.Sleep(time.Duration(rand.Int63n(microsecond)))
 }
 
 func HttpGet(apiURI string, call Caller) (err error) {

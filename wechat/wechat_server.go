@@ -23,6 +23,7 @@ func (w *Wechat) ServerDaemon(portMsg chan string) {
 	w.ServerHandleFuncGetRoomMembersCount(rtr)
 	w.ServerHandleFuncAddRoom(rtr)
 	w.ServerHandleFuncGetMarketGroups(rtr)
+	w.ServerHandleFuncVerifyFriend(rtr)
 
 	http.Handle("/", rtr)
 	common.Log.ERROR.Fatalln(http.Serve(listener, nil))
@@ -89,6 +90,21 @@ func (w *Wechat) ServerHandleFuncAddRoom(rtr *mux.Router) {
 		w.serverResp(res, map[string]interface{}{
 			"roomName": roomName,
 		})
+	}).Methods("GET")
+}
+func (w *Wechat) ServerHandleFuncVerifyFriend(rtr *mux.Router) {
+	rtr.HandleFunc("/verify_friend/{nickName}/{ticket}", func(res http.ResponseWriter, req *http.Request) {
+		params := mux.Vars(req)
+		nickName := params["nickName"]
+		ticket := params["ticket"]
+
+		common.Log.INFO.Printf("room_add: %s,%s", nickName, ticket)
+		err := w.VerifyFriend(nickName, ticket)
+		if err != nil {
+			w.serverResp(res, map[string]interface{}{}, err)
+			return
+		}
+		w.serverResp(res, map[string]interface{}{})
 	}).Methods("GET")
 }
 

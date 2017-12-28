@@ -46,15 +46,20 @@ type Message struct {
 	ImgHeight            int
 	NewMsgId             int
 	Url                  string
-	RecommendInfo        interface{}
-	ImgWidth             int
-	OriContent           string
-	ToUserNickName       string
-	VoiceLength          int
-	ToUserName           string
-	FromUserNickName     string
-	FromUserHeadImgUrl   string
-	ToUserHeadImgUrl     string
+	RecommendInfo        struct {
+		Content  string
+		NickName string
+		Ticket   string
+		UserName string
+	}
+	ImgWidth           int
+	OriContent         string
+	ToUserNickName     string
+	VoiceLength        int
+	ToUserName         string
+	FromUserNickName   string
+	FromUserHeadImgUrl string
+	ToUserHeadImgUrl   string
 }
 
 func (m Message) String() string {
@@ -131,6 +136,11 @@ type CreateRoomResp struct {
 	ChatRoomName string `json:"ChatRoomName"`
 	MemberCount  int    `json:"MemberCount"`
 	MemberList   []User `json:"MemberList"`
+}
+type AddRoomMemberResp struct {
+	Response
+	MemberCount int    `json:"MemberCount"`
+	MemberList  []User `json:"MemberList"`
 }
 
 type InitResp struct {

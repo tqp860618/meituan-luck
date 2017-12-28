@@ -459,6 +459,9 @@ func (w *Wechat) UpPackMsg(msgIn chan *Message) {
 			//devctang刚刚把你添加到通讯录，现在可以开始聊天了。
 			msgIn <- msg
 			//红包消息
+		case 37:
+			common.Log.INFO.Printf("有新朋友加你：%v", msg)
+			msgIn <- msg
 		default:
 			common.Log.INFO.Printf("未处理消息：%v", msg)
 			msgIn <- msg
@@ -672,7 +675,7 @@ func (w *Wechat) GetRoomMembersCount(roomID string) int {
 }
 
 func (w *Wechat) AddRoomMember(roomName string, memberList []string) (err error) {
-	resp := new(Response)
+	resp := new(AddRoomMemberResp)
 
 	apiUrl := fmt.Sprintf("%s/webwxupdatechatroom?pass_ticket=%s&fun=addmember", w.BaseUri, w.Request.PassTicket)
 	params := make(map[string]interface{})
@@ -680,8 +683,11 @@ func (w *Wechat) AddRoomMember(roomName string, memberList []string) (err error)
 	params["AddMemberList"] = strings.Join(memberList, ",")
 	params["ChatRoomName"] = roomName
 	data, _ := json.Marshal(params)
-	if err := w.Send(apiUrl, bytes.NewReader(data), resp); err != nil {
+	if err = w.Send(apiUrl, bytes.NewReader(data), resp); err != nil {
 		common.Log.WARN.Printf("w.AddRoomMember(%s,%v):%v", apiUrl, string(data), err)
+		return
+	} else {
+		common.Log.INFO.Printf("AddRoomMember:%v", resp)
 	}
 	return
 }
@@ -714,6 +720,34 @@ func (w *Wechat) getRoomLeaders() (members []string) {
 		if strings.Index(w.MemberList[i].RemarkName, "_%%_") != -1 {
 			members = append(members, w.MemberList[i].UserName)
 		}
+	}
+	return
+}
+
+//verify_friend
+
+func (w *Wechat) VerifyFriend(userName string, ticket string) (err error) {
+	resp := new(MsgResp)
+	apiUrl := fmt.Sprintf("%s/webwxverifyuser?pass_ticket=%s&fun=addmember&r=%d", w.BaseUri, w.Request.PassTicket, int(time.Now().Unix()))
+	params := make(map[string]interface{})
+	params["BaseRequest"] = w.Request
+	params["Opcode"] = 3
+	params["SceneListCount"] = 1
+	params["SceneList"] = []int{33}
+	params["VerifyContent"] = ""
+	params["VerifyUserListSize"] = 1
+	params["skey"] = w.Request.Skey
+	params["VerifyUserList"] = []map[string]string{
+		{
+			"Value":            userName,
+			"VerifyUserTicket": ticket,
+		},
+	}
+
+	data, _ := json.Marshal(params)
+	if err = w.Send(apiUrl, bytes.NewReader(data), resp); err != nil {
+		common.Log.WARN.Printf("w.VerifyFriend(%s,%v):%v", apiUrl, string(data), err)
+		return
 	}
 	return
 }

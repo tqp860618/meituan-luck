@@ -3,7 +3,6 @@ package message
 import (
 	"fmt"
 	"github.com/spf13/viper"
-	"math/rand"
 	"net/http"
 	"net/url"
 	"regexp"
@@ -73,7 +72,7 @@ func (m *MsgDis) getMTShortURL(urlRequire string) (rst string) {
 }
 
 func (m *MsgDis) sendMsg(srv string, toUid string, text string) {
-	time.Sleep(time.Duration(rand.Int63n(4000)))
+	common.SleepRandn(4000)
 	urlTemp := "http://%s/msg_send/%s/%s"
 	urlTemp = fmt.Sprintf(urlTemp, srv, toUid, url.QueryEscape(text))
 	http.Get(urlTemp)
@@ -82,6 +81,13 @@ func (m *MsgDis) sendMsg(srv string, toUid string, text string) {
 func (m *MsgDis) addRoomMember(srv string, uid string, groupName string) {
 	urlTemp := "http://%s/room_add_member/%s/%s"
 	urlTemp = fmt.Sprintf(urlTemp, srv, groupName, uid)
+	http.Get(urlTemp)
+}
+
+func (m *MsgDis) verifyFriend(srv string, userName string, ticket string) {
+
+	urlTemp := "http://%s/verify_friend/%s/%s"
+	urlTemp = fmt.Sprintf(urlTemp, srv, userName, ticket)
 	http.Get(urlTemp)
 }
 
@@ -109,19 +115,34 @@ func (m *MsgDis) getRoomMembersCount(srv string, roomName string) (count int, er
 }
 
 func (m *MsgDis) meituanNewFriendLogic(msg *wechat.Message, srv string) {
+	welcomeMsg := "您好，感谢关注，回复【外卖群】可以直接加群"
+	if msg.MsgType == 37 {
+		common.SleepRandn(10000)
+		m.verifyFriend(srv, msg.RecommendInfo.UserName, msg.RecommendInfo.Ticket)
+		common.SleepRandn(4000)
+		m.sendMsg(srv, msg.RecommendInfo.UserName, welcomeMsg)
+	}
 	if msg.MsgType == 10000 {
 		if strings.Index(msg.Content, "刚刚把你添加到通讯录") != -1 {
 			// 向这个人回复一条欢迎消息
-			welcomeMsg := "您好，感谢关注，回复【外卖群】可以直接加群"
+
 			go m.sendMsg(srv, msg.FromUserName, welcomeMsg)
 		}
 	}
 }
 func (m *MsgDis) caipiaoNewFriendLogic(msg *wechat.Message, srv string) {
+	welcomeMsg := "您好，感谢关注，回复【红彩群】可以直接加群"
+	//需要验证
+	if msg.MsgType == 37 {
+		common.SleepRandn(10000)
+		m.verifyFriend(srv, msg.RecommendInfo.UserName, msg.RecommendInfo.Ticket)
+		common.SleepRandn(4000)
+		m.sendMsg(srv, msg.RecommendInfo.UserName, welcomeMsg)
+	}
+	//无需要正，但是要再加好友才能拉群
 	if msg.MsgType == 10000 {
 		if strings.Index(msg.Content, "刚刚把你添加到通讯录") != -1 {
 			// 向这个人回复一条欢迎消息
-			welcomeMsg := "您好，感谢关注，回复【红彩群】可以直接加群"
 			go m.sendMsg(srv, msg.FromUserName, welcomeMsg)
 		}
 	}
@@ -152,8 +173,11 @@ func (m *MsgDis) getMarketGroupsForTag(msg *wechat.Message, srv string, roomNick
 	return
 
 }
+func (m *MsgDis) MeituanRegUserHandle(msg *wechat.Message, srv string) {
 
-func (m *MsgDis) addToMarketingGroup(msg *wechat.Message, srv string, roomNick string, roomMaxUserNum int) {
+}
+
+func (m *MsgDis) addToMarketingGroup(msg *wechat.Message, srv string, roomNick string, roomMaxUserNum int, groupRole string) {
 	var groupAddedNickName = ""
 	m.KVStore.Get(roomNick+msg.FromUserName, &groupAddedNickName)
 	if groupAddedNickName != "" {
@@ -186,35 +210,59 @@ func (m *MsgDis) addToMarketingGroup(msg *wechat.Message, srv string, roomNick s
 
 		// 邀请用户到群组
 		if nowGroupName != "" {
-			groupRole := "1 本群不聊闲，仅可发布网易红彩方案或自行组织合买；\n2 任何广告、情色内容不得出现，一律剔除；\n3 请注意私下交易风险；\n4 不得把群内方案分享出去，一经发现永久剔除"
 			go m.sendMsg(srv, nowGroupName, "群主邀请【"+msg.FromUserNickName+"】加群")
-			go m.sendMsg(srv, nowGroupName, msg.FromUserNickName+"，新成员请注意本群规则："+groupRole)
+			go m.sendMsg(srv, msg.FromUserName, msg.FromUserNickName+"，新成员请注意本群规则：\n"+groupRole)
 			go m.addRoomMember(srv, msg.FromUserName, nowGroupName)
 			go m.sendMsg(srv, msg.FromUserName, "成功添加到：【"+groupAddedNickName+"】")
 			m.KVStore.Put(roomNick+msg.FromUserName, groupAddedNickName)
 		} else {
-			go m.sendMsg(srv, msg.FromUserName, "出了点问题，请加客服微信：takeout88")
+			go m.sendMsg(srv, msg.FromUserName, "出了点问题，请加唯一客服微信：xiaoqiang886")
 		}
 	}
 
 }
 func (m *MsgDis) meituanTalkLogic(msg *wechat.Message, srv string) {
-	if msg.MsgType == 1 && len(msg.FromUserName) > 2 && msg.FromUserName[:2] != "@@" {
+	if msg.MsgType == 1 && len(msg.FromUserName) > 2 && !m.isRoom(msg.FromUserName) && !m.isWechatOfficial(msg.FromUserName) {
 		if strings.Index(msg.Content, "外卖群") != -1 {
 			roomMaxUserNum := 500
-			go m.addToMarketingGroup(msg, srv, MeituanRoomNick, roomMaxUserNum)
+			go m.addToMarketingGroup(msg, srv, MeituanRoomNick, roomMaxUserNum, "1 本群不聊闲，仅发布外卖红包；\n2 任何广告、情色内容不得出现，一律剔除；\n3 请注意私下交易风险；\n4 不得把群内方案分享出去，一经发现永久剔除\n5 群友在抢红包后，自觉为报位置\n5 进群先修改昵称，模板：[广州]李小丫")
 		} else {
-			go m.sendMsg(srv, msg.FromUserName, "请回复\"外卖群\"，加入美团饿了么外卖互助群组。——"+time.Now().Format(`2006-01-02 15:04:05`))
+			go m.sendHelpTips(srv, msg.FromUserName, "请回复\"外卖群\"，加入美团饿了么外卖互助群组。——"+time.Now().Format(`2006-01-02`))
 		}
 	}
 }
 func (m *MsgDis) caipiaoTalkLogic(msg *wechat.Message, srv string) {
-	if msg.MsgType == 1 && len(msg.FromUserName) > 2 && msg.FromUserName[:2] != "@@" {
+	if msg.MsgType == 1 && len(msg.FromUserName) > 2 && !m.isRoom(msg.FromUserName) && !m.isWechatOfficial(msg.FromUserName) {
 		if strings.Index(msg.Content, "红彩群") != -1 {
 			roomMaxUserNum := 500
-			go m.addToMarketingGroup(msg, srv, HongcaiRoomNick, roomMaxUserNum)
+			go m.addToMarketingGroup(msg, srv, HongcaiRoomNick, roomMaxUserNum, "1 本群不聊闲，仅可发布网易红彩方案或自行组织合买；\n2 任何广告、情色内容不得出现，一律剔除；\n3 请注意私下交易风险；\n4 不得把群内方案分享出去，一经发现永久剔除\n5 进群先修改昵称，模板：[广州]王小强")
 		} else {
-			go m.sendMsg(srv, msg.FromUserName, "请回复\"红彩群\"，加入网易红彩互助群组。——"+time.Now().Format(`2006-01-02 15:04:05`))
+			go m.sendHelpTips(srv, msg.FromUserName, "请回复\"红彩群\"，加入网易红彩互助群组。——"+time.Now().Format(`2006-01-02`))
 		}
 	}
+}
+func (m *MsgDis) sendHelpTips(srv string, toUid string, text string) {
+	if !m.ifDidToday(toUid + text) {
+		m.didToday(toUid + text)
+		m.sendMsg(srv, toUid, text)
+	}
+}
+
+func (m *MsgDis) ifDidToday(key string) bool {
+	hashKey := common.Md5(key + common.Today())
+	value := false
+	m.KVStore.Get(hashKey, &value)
+	return value
+}
+func (m *MsgDis) didToday(key string) {
+	hashKey := common.Md5(key + common.Today())
+	m.KVStore.Put(hashKey, true)
+}
+
+func (m *MsgDis) isRoom(id string) bool {
+	return len(id) > 2 && id[:2] == "@@"
+}
+
+func (m *MsgDis) isWechatOfficial(id string) bool {
+	return len(id) >= 1 && id[:1] != "@"
 }
