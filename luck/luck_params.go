@@ -56,9 +56,12 @@ type TaskDisServer struct {
 	SigNewTasks           chan []SigNewTask
 	SigPoolActivityStatus chan *SigPoolActivityStatus
 	ActivityStatus        *SigPoolActivityStatus
+	TasksDisLocker        *sync.Mutex
+	SigNewHandleTasks     chan bool
 }
 type TaskExeServer struct {
 	DBConn                *sqlx.DB
+	SigNewHandleTasks     chan bool
 	PoolActivity          *PoolActivity
 	SigNewActivity        chan SigNewActivity
 	SigNewTasks           chan []SigNewTask

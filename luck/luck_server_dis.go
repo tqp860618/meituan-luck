@@ -39,61 +39,46 @@ func (d *TaskDisServer) handleActivityStatusChange() {
 		case status = <-d.SigPoolActivityStatus:
 			//d.Logln("接收到执行服务器状态变化", status)
 			status.RepeatTry = 10
-			err := d.recordStatusChangeAction(status)
-			if err != nil {
-				status.Chan <- []SigNewTask{}
-			}
+			go d.recordStatusChangeAction(status)
 
 		default:
 			time.Sleep(time.Microsecond * 20)
 		}
 	}
 }
-func (d *TaskDisServer) recordStatusChangeAction(status *SigPoolActivityStatus) (err error) {
-	//最新的status
-	bestNum := status.BestLuckChance
-	simpleNum := status.SimpleLuckChance
+func (d *TaskDisServer) recordStatusTaskType(cateType int, num int, status *SigPoolActivityStatus) (err error) {
 	var tastsRst []SigNewTask
-	if bestNum > 0 {
-		err, tasksBest := d.getTasks(TYPE_TASK_BEST, bestNum, status.ID)
-		if err != nil {
-			common.Log.ERROR.Println(err)
+	err, tasksBest := d.getTasks(cateType, num, status.ID)
+	if err != nil {
+		common.Log.ERROR.Println(err)
+		return err
+	}
+	if len(tasksBest) > 0 {
+		tastsRst = append(tastsRst, tasksBest...)
+		status.Chan <- tastsRst
+	} else {
+		if status.RepeatTry <= 0 {
+			err = errors.New("no tasks")
 			return err
 		}
-		if len(tasksBest) > 0 {
-			tastsRst = append(tastsRst, tasksBest...)
-
-		} else {
-			if status.RepeatTry <= 0 {
-				err = errors.New("no tasks")
-				return err
-			}
-			status.RepeatTry -= 1
-			time.Sleep(time.Second * 1)
-			go d.recordStatusChangeAction(status)
-		}
-
+		status.RepeatTry -= 1
+		time.Sleep(time.Second * 1)
+		d.recordStatusTaskType(cateType, num, status)
 	}
-	if simpleNum > 0 {
-		err, tasksSimple := d.getTasks(TYPE_TASK_SIMPLE, simpleNum, status.ID)
-		if err != nil {
-			common.Log.ERROR.Println(err)
-		}
-		if len(tasksSimple) > 0 {
-			tastsRst = append(tastsRst, tasksSimple...)
+	return
+}
 
-		} else {
-			time.Sleep(time.Second * 1)
-			go d.recordStatusChangeAction(status)
-		}
+func (d *TaskDisServer) recordStatusChangeAction(status *SigPoolActivityStatus) (err error) {
+	if status.BestLuckChance > 0 {
+		go d.recordStatusTaskType(TYPE_TASK_BEST, status.BestLuckChance, status)
 	}
-	if len(tastsRst) > 0 {
-		status.Chan <- tastsRst
+	if status.SimpleLuckChance > 0 {
+		go d.recordStatusTaskType(TYPE_TASK_SIMPLE, status.SimpleLuckChance, status)
 	}
-
 	return
 }
 func (d *TaskDisServer) getTasks(cateType int, num int, recordID string) (err error, tasks []SigNewTask) {
+	d.TasksDisLocker.Lock()
 	var tasksTmp []SigNewTask
 	var tasksTmp2 []SigNewTask
 	query := fmt.Sprintf("SELECT id,status,mobile,time_gen,uid,wxid,type,precord_ids FROM mt_task WHERE type=%d and status=0 GROUP BY uid ORDER BY id ASC LIMIT 0,%d;", cateType, num*8)
@@ -118,8 +103,8 @@ func (d *TaskDisServer) getTasks(cateType int, num int, recordID string) (err er
 		if len(tasks) > 0 {
 			err = d.updateTasksStatus(tasks, STATUS_TASK_OUT)
 		}
-
 	}
+	d.TasksDisLocker.Unlock()
 
 	if err != nil {
 		return

@@ -259,9 +259,10 @@ func (e *TaskExeServer) processActivity(record *ActivityRecord) {
 						task = simpleTasks[i]
 						//根据任务类型，执行任务，并修改自己的状态，更新整体的状态
 						//task.Mobile, task.ID
-						e.goodLuckLogic(task, record)
 						if record.NextBestIf && hasBestTask {
 							e.goodLuckLogic(bestTask, record)
+						} else {
+							e.goodLuckLogic(task, record)
 						}
 						if record.Finished {
 							ifFinished = true
@@ -274,7 +275,7 @@ func (e *TaskExeServer) processActivity(record *ActivityRecord) {
 					//e.updateActivityPoolStatus()
 					e.updateSelfActivityStatus(record)
 				} else {
-					if hasBestTask {
+					if hasBestTask { //todo 很容易拿到普通任务 改为一个任务一个任务的去拿
 						e.goodLuckLogic(bestTask, record)
 					}
 				}

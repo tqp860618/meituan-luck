@@ -30,7 +30,8 @@ func NewLuck() (luck *Luck, err error) {
 			TaskResult:         chanTaskResult,
 		},
 		TaskDisServer: &TaskDisServer{
-			DBConn: dbConn,
+			DBConn:         dbConn,
+			TasksDisLocker: &sync.Mutex{},
 		},
 		TaskExeServer: &TaskExeServer{
 			ActivityStatus: &SigPoolActivityStatus{
@@ -185,6 +186,10 @@ func (luck *Luck) initChans() {
 
 	luck.TaskExeServer.SigPoolActivityStatus = chanActivityStatus
 	luck.TaskDisServer.SigPoolActivityStatus = chanActivityStatus
+
+	chanNewHandleTasks := make(chan bool)
+	luck.TaskExeServer.SigNewHandleTasks = chanNewHandleTasks
+	luck.TaskDisServer.SigNewHandleTasks = chanNewHandleTasks
 
 }
 func (luck *Luck) CloseConn() {

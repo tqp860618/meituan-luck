@@ -15,12 +15,16 @@ func (m *MsgServer) Start() {
 	m.Logln("消息服务器已启动")
 	port := viper.GetString("luck_server.server_address")
 	rtr := mux.NewRouter()
-	rtr.HandleFunc("/new_activity/{bestPos}/{fromUid}/{Channel}/{UrlKey}", m.msgHandler).Methods("GET")
+	rtr.HandleFunc("/new_activity/{bestPos}/{fromUid}/{Channel}/{UrlKey}", m.newActivityHandler).Methods("GET")
+	rtr.HandleFunc("/new_task/", m.newTaskHandler).Methods("GET")
 	http.Handle("/", rtr)
 	log.Fatalln(http.ListenAndServe(port, nil))
 }
 
-func (m *MsgServer) msgHandler(res http.ResponseWriter, req *http.Request) {
+func (m *MsgServer) newTaskHandler(res http.ResponseWriter, req *http.Request) {
+	m.LuckServer.TaskDisServer.SigNewHandleTasks <- true
+}
+func (m *MsgServer) newActivityHandler(res http.ResponseWriter, req *http.Request) {
 	isFromUser := true
 
 	params := mux.Vars(req)
