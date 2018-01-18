@@ -47,7 +47,10 @@ func (g *TaskGenServer) waitForTaskResults() {
 				g.callbackSystemErr(result)
 			case RST_ACTIVITY_PASS:
 				g.callbackActivityEnd(result)
-
+			case RST_NEED_BEST_GOT_SIMPLE:
+				g.callbackNotBestGotSimple(result)
+			case RST_NEED_BEST_GOT_NONE:
+				g.callbackNotBest(result)
 			case RST_OK:
 				g.callbackOK(result)
 
@@ -110,12 +113,35 @@ func (g *TaskGenServer) callbackUserPicked(r TaskResult) (err error) {
 	//	taskID, _ = g.genTaskID(2)
 	//}
 	//now := time.Now().Unix()
-	//g.genNewTask(taskID, r.Mobile, now, r.UserID, r.WechatID, r.Type)
+	//g.genNewTask(taskID, r.Mobile, now, r.UserID, r.ClientId, r.Type)
 
 	return
 
 }
 func (g *TaskGenServer) callbackNotLeft(r TaskResult) (err error) {
+	//本任务设置为取回，用于从新取回
+	query := fmt.Sprintf("UPDATE mt_task set status=%d where id=%d;", STATUS_TASK_RESTORE, r.Task.ID)
+	_, err = g.DBConn.Exec(query)
+	if err != nil {
+		return
+	}
+
+	return
+}
+func (g *TaskGenServer) callbackNotBestGotSimple(r TaskResult) (err error) {
+	//原任务返回，创建一条成功的普通记录
+	query := fmt.Sprintf("UPDATE mt_task set status=%d where id=%d;", STATUS_TASK_RESTORE, r.Task.ID)
+	g.DBConn.Exec(query)
+	// 生成成功的普通记录，算作一条错误奖励
+	nowUnix := time.Now().Unix()
+	query = fmt.Sprintf("INSERT INTO mt_history(`uid`,`time`,`luck`,`is_best`,`suprise_mount`) VALUES(%d,%d,%d,%t,%d);", r.Task.UserID, nowUnix, r.Luck.Mount, false, r.Surprise.Mount)
+	_, err = g.DBConn.Exec(query)
+	if err != nil {
+		return
+	}
+	return
+}
+func (g *TaskGenServer) callbackNotBest(r TaskResult) (err error) {
 	//本任务设置为取回，用于从新取回
 	query := fmt.Sprintf("UPDATE mt_task set status=%d where id=%d;", STATUS_TASK_RESTORE, r.Task.ID)
 	_, err = g.DBConn.Exec(query)
@@ -152,26 +178,22 @@ func (g *TaskGenServer) callbackOK(r TaskResult) (err error) {
 	//本任务设置为完成
 	fmt.Println(r)
 	query := fmt.Sprintf("UPDATE mt_task set status=%d,luck=%d,time_done=%d where id=%d;", STATUS_TASK_FINISH, r.Luck.Mount, nowUnix, r.Task.ID)
-	_, err = g.DBConn.Exec(query)
-	if err != nil {
-		return
-	}
+	g.DBConn.Exec(query)
 
 	// 生成成功记录
 	query = fmt.Sprintf("INSERT INTO mt_history(`uid`,`time`,`luck`,`is_best`,`suprise_mount`) VALUES(%d,%d,%d,%t,%d);", r.Task.UserID, nowUnix, r.Luck.Mount, r.Luck.IsBest, r.Surprise.Mount)
 	fmt.Println(query)
-	_, err = g.DBConn.Exec(query)
-	if err != nil {
-		return
-	}
+	g.DBConn.Exec(query)
 
-	//减少相应的次数
+	query = fmt.Sprintf("UPDATE mt_user set pick_money_total=pick_money_total+%d,pick_times_total=pick_times_total+1 where id=%d AND pay_end_time<%d;", r.Luck.Mount, r.Task.UserID, nowUnix)
+	g.DBConn.Exec(query)
 
-	//只处理非付费用户的次数
-	query = fmt.Sprintf("UPDATE mt_user set luck_left_time=luck_left_time-1 where id=%d AND pay_end_time<%d;", r.Task.UserID, nowUnix)
-	_, err = g.DBConn.Exec(query)
-	if err != nil {
-		return
+	if r.Task.Type == TYPE_TASK_BEST {
+		query = fmt.Sprintf("UPDATE mt_user set best_pick_times_left=best_pick_times_left-1,best_pick_times_total=best_pick_times_total+1 where id=%d AND pay_end_time<%d;", r.Task.UserID, nowUnix)
+		g.DBConn.Exec(query)
+	} else {
+		query = fmt.Sprintf("UPDATE mt_user set simple_pick_times_today=simple_pick_times_today+1,pick_times_total=pick_times_total+1 where id=%d AND pay_end_time<%d;", r.Task.UserID, nowUnix)
+		g.DBConn.Exec(query)
 	}
 
 	return
@@ -220,6 +242,24 @@ func (g *TaskGenServer) handleNewUpgradeTask() {
 //生成手动临时请求的任务，比如从网页端单独请求一次
 
 func (g *TaskGenServer) handleNewHandedTask() {
+	var info HandlerTaskInfo
+	for {
+		select {
+		case info = <-g.SigNewHandleTasks:
+			//生成新的记录
+			//每个人每天都有有效执行上线5次
+			taskID, _ := g.genTaskID(3)
+			now := time.Now().Unix()
+			g.genNewTask(taskID, info.Mobile, now, info.UserID, info.ClientId, info.Type)
+			//告知执行服务器有新的任务，过来取吧
+			g.SigNewTaskType <- info.Type
+			g.SigNewHandleTasksResult <- taskID
+
+		default:
+
+		}
+
+	}
 
 }
 
@@ -230,7 +270,7 @@ func (g *TaskGenServer) genDailySimpleTask() (err error) {
 	dailyMaxGenNum := g.SimplePickNumDaily
 	now := time.Now().Unix()
 	for {
-		query := fmt.Sprintf("SELECT id,mobile,pay_end_time,luck_left_num,wxid FROM mt_user WHERE (luck_left_num>0 or pay_end_time>%d) AND status=1 LIMIT %d,%d;", now, (page-1)*limit, limit)
+		query := fmt.Sprintf("SELECT id,mobile,pay_end_time,luck_left_num,client_id FROM mt_user WHERE (luck_left_num>0 or pay_end_time>%d) AND status=1 LIMIT %d,%d;", now, (page-1)*limit, limit)
 		err = g.DBConn.Select(&users, query)
 		if err != nil {
 			return
@@ -247,7 +287,7 @@ func (g *TaskGenServer) genDailySimpleTask() (err error) {
 			for userCanGenNum > 0 {
 				// 生成task逻辑，完成talk才会减1
 				taskID, _ := g.genTaskID(userCanGenNum + 3)
-				g.genNewTask(taskID, user.Mobile, now, user.ID, user.WechatID, TYPE_TASK_SIMPLE)
+				g.genNewTask(taskID, user.Mobile, now, user.ID, user.ClientID, TYPE_TASK_SIMPLE)
 				userCanGenNum--
 			}
 		}
@@ -264,7 +304,7 @@ func (g *TaskGenServer) genDailyBestTask() (err error) {
 	limit := 100
 	now := time.Now().Unix()
 	for {
-		query := fmt.Sprintf("SELECT id,mobile,pay_end_time,luck_left_num,wxid  FROM mt_user WHERE pay_end_time>%d AND status=1 LIMIT %d,%d;", now, (page-1)*limit, limit)
+		query := fmt.Sprintf("SELECT id,mobile,pay_end_time,luck_left_num,client_id  FROM mt_user WHERE pay_end_time>%d AND status=1 LIMIT %d,%d;", now, (page-1)*limit, limit)
 		err = g.DBConn.Select(&users, query)
 		if err != nil {
 			return
@@ -275,7 +315,7 @@ func (g *TaskGenServer) genDailyBestTask() (err error) {
 			if err != nil {
 				return
 			}
-			g.genNewTask(taskID, user.Mobile, now, user.ID, user.WechatID, TYPE_TASK_BEST)
+			g.genNewTask(taskID, user.Mobile, now, user.ID, user.ClientID, TYPE_TASK_BEST)
 		}
 
 		if len(users) < limit {
@@ -285,16 +325,16 @@ func (g *TaskGenServer) genDailyBestTask() (err error) {
 	}
 }
 
-func (g *TaskGenServer) genNewTask(taskID int64, mobile string, time int64, uid int64, wxid string, typeTask int) {
+func (g *TaskGenServer) genNewTask(taskID int64, mobile string, time int64, uid int64, clientID string, typeTask int) {
 
-	g.DBConn.NamedExec("INSERT INTO mt_task(id,status,mobile,time_gen,uid,wxid,type) VALUES(:id,:status,:mobile,:time_gen,:uid,:wxid,:type)", map[string]interface{}{
-		"id":       taskID,
-		"status":   STATUS_TASK_ENTER,
-		"mobile":   mobile,
-		"time_gen": time,
-		"uid":      uid,
-		"wxid":     wxid,
-		"type":     typeTask,
+	g.DBConn.NamedExec("INSERT INTO mt_task(id,status,mobile,time_gen,uid,clientID,type) VALUES(:id,:status,:mobile,:time_gen,:uid,:clientID,:type)", map[string]interface{}{
+		"id":        taskID,
+		"status":    STATUS_TASK_ENTER,
+		"mobile":    mobile,
+		"time_gen":  time,
+		"uid":       uid,
+		"client_id": clientID,
+		"type":      typeTask,
 	})
 	common.Log.INFO.Printf("gen new task id:%d for %s\n", taskID, mobile)
 

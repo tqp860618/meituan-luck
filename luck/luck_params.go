@@ -29,7 +29,7 @@ type SigNewTask struct {
 	Mobile           string `db:"mobile"`
 	TimeGen          int    `db:"time_gen"`
 	UserID           int64  `db:"uid"`
-	WechatID         string `db:"wxid"`
+	ClientId         string `db:"client_id"`
 	Type             int    `db:"type"`
 	PrecordIdsString string `db:"precord_ids"`
 	PrecordIds       []string
@@ -46,10 +46,19 @@ type SigPoolActivityStatus struct {
 	RepeatTry        int
 }
 
+type HandlerTaskInfo struct {
+	Type     int
+	Mobile   string
+	UserID   int64
+	ClientId string
+}
 type TaskGenServer struct {
-	DBConn             *sqlx.DB
-	SimplePickNumDaily int
-	TaskResult         chan TaskResult
+	DBConn                  *sqlx.DB
+	SimplePickNumDaily      int
+	TaskResult              chan TaskResult
+	SigNewHandleTasks       chan HandlerTaskInfo
+	SigNewHandleTasksResult chan int64
+	SigNewTaskType          chan int
 }
 type TaskDisServer struct {
 	DBConn                *sqlx.DB
@@ -57,7 +66,6 @@ type TaskDisServer struct {
 	SigPoolActivityStatus chan *SigPoolActivityStatus
 	ActivityStatus        *SigPoolActivityStatus
 	TasksDisLocker        *sync.Mutex
-	SigNewHandleTasks     chan bool
 }
 type TaskExeServer struct {
 	DBConn                *sqlx.DB
@@ -65,6 +73,7 @@ type TaskExeServer struct {
 	PoolActivity          *PoolActivity
 	SigNewActivity        chan SigNewActivity
 	SigNewTasks           chan []SigNewTask
+	SigNewTaskType        chan int
 	SigPoolActivityStatus chan *SigPoolActivityStatus
 	ActivityStatus        *SigPoolActivityStatus
 	ActivityLocker        *sync.Mutex
@@ -136,7 +145,7 @@ type User struct {
 	Mobile      string `db:"mobile"`
 	PayEndTime  int    `db:"pay_end_time"`
 	LuckLeftNum int    `db:"luck_left_num"`
-	WechatID    string `db:"wxid"`
+	ClientID    string `db:"clientID"`
 }
 
 func (r *ActivityRecord) Serialize() (str string, err error) {

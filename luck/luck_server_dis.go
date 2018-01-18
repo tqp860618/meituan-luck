@@ -24,7 +24,7 @@ func (d *TaskDisServer) unsetUnExeTasks() {
 
 func (d *TaskDisServer) restoreUnExeTasks() {
 	var tasks []SigNewTask
-	query := fmt.Sprintf("SELECT id,status,mobile,time_gen,uid,wxid,type FROM mt_task WHERE status=1 ORDER BY id ASC")
+	query := fmt.Sprintf("SELECT id,status,mobile,time_gen,uid,client_id,type FROM mt_task WHERE status=1 ORDER BY id ASC")
 	d.DBConn.Select(&tasks, query)
 	if len(tasks) > 0 {
 		d.SigNewTasks <- tasks
@@ -81,11 +81,11 @@ func (d *TaskDisServer) getTasks(cateType int, num int, recordID string) (err er
 	d.TasksDisLocker.Lock()
 	var tasksTmp []SigNewTask
 	var tasksTmp2 []SigNewTask
-	query := fmt.Sprintf("SELECT id,status,mobile,time_gen,uid,wxid,type,precord_ids FROM mt_task WHERE type=%d and status=0 GROUP BY uid ORDER BY id ASC LIMIT 0,%d;", cateType, num*8)
+	query := fmt.Sprintf("SELECT id,status,mobile,time_gen,uid,client_id,type,precord_ids FROM mt_task WHERE type=%d and status=0 GROUP BY uid ORDER BY id ASC LIMIT 0,%d;", cateType, num*8)
 	//fmt.Println(query)
 	err = d.DBConn.Select(&tasksTmp, query)
 
-	query = fmt.Sprintf("SELECT id,status,mobile,time_gen,uid,wxid,type,precord_ids FROM mt_task WHERE type=%d and status=4 GROUP BY uid ORDER BY id ASC LIMIT 0,%d;", cateType, num*8)
+	query = fmt.Sprintf("SELECT id,status,mobile,time_gen,uid,client_id,type,precord_ids FROM mt_task WHERE type=%d and status=4 GROUP BY uid ORDER BY id ASC LIMIT 0,%d;", cateType, num*8)
 	//fmt.Println(query)
 	err = d.DBConn.Select(&tasksTmp2, query)
 	tasksTmp = append(tasksTmp, tasksTmp2...)

@@ -182,6 +182,13 @@ func (luck *Luck) initChans() {
 	luck.TaskExeServer.SigNewTasks = chanNewTasks
 	luck.TaskDisServer.SigNewTasks = chanNewTasks
 
+	chanNewTaskType := make(chan int, maxChanNewTasksSize)
+	luck.TaskExeServer.SigNewTaskType = chanNewTaskType
+	luck.TaskGenServer.SigNewTaskType = chanNewTaskType
+
+	luck.TaskGenServer.SigNewHandleTasks = make(chan HandlerTaskInfo, maxChanNewTasksSize)
+	luck.TaskGenServer.SigNewHandleTasksResult = make(chan int64, maxChanNewTasksSize)
+
 	chanActivityStatus := make(chan *SigPoolActivityStatus, maxChanNewActivityStatusSize)
 
 	luck.TaskExeServer.SigPoolActivityStatus = chanActivityStatus
@@ -189,7 +196,6 @@ func (luck *Luck) initChans() {
 
 	chanNewHandleTasks := make(chan bool)
 	luck.TaskExeServer.SigNewHandleTasks = chanNewHandleTasks
-	luck.TaskDisServer.SigNewHandleTasks = chanNewHandleTasks
 
 }
 func (luck *Luck) CloseConn() {

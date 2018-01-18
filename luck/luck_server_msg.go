@@ -1,6 +1,7 @@
 package luck
 
 import (
+	"encoding/json"
 	"fmt"
 	"github.com/gorilla/mux"
 	"github.com/spf13/viper"
@@ -16,13 +17,28 @@ func (m *MsgServer) Start() {
 	port := viper.GetString("luck_server.server_address")
 	rtr := mux.NewRouter()
 	rtr.HandleFunc("/new_activity/{bestPos}/{fromUid}/{Channel}/{UrlKey}", m.newActivityHandler).Methods("GET")
-	rtr.HandleFunc("/new_task/", m.newTaskHandler).Methods("GET")
+	rtr.HandleFunc("/new_task/{mobile}/{type}/{userID}/{clientID}", m.newTaskHandler).Methods("GET")
 	http.Handle("/", rtr)
 	log.Fatalln(http.ListenAndServe(port, nil))
 }
 
 func (m *MsgServer) newTaskHandler(res http.ResponseWriter, req *http.Request) {
-	m.LuckServer.TaskDisServer.SigNewHandleTasks <- true
+	params := mux.Vars(req)
+	taskType, _ := strconv.Atoi(params["type"])
+	userID, _ := strconv.ParseInt(params["userID"], 10, 64)
+	clientID := params["clientID"]
+
+	m.LuckServer.TaskGenServer.SigNewHandleTasks <- HandlerTaskInfo{
+		Type:     taskType,
+		UserID:   userID,
+		ClientId: clientID,
+		Mobile:   params["mobile"],
+	}
+	newTaskId := <-m.LuckServer.TaskGenServer.SigNewHandleTasksResult
+	jsonBytes, _ := json.Marshal(map[string]interface{}{
+		"taskId": newTaskId,
+	})
+	res.Write(jsonBytes)
 }
 func (m *MsgServer) newActivityHandler(res http.ResponseWriter, req *http.Request) {
 	isFromUser := true

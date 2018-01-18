@@ -29,8 +29,26 @@ func (e *TaskExeServer) getRecords() map[string]*ActivityRecord {
 func (e *TaskExeServer) waitForNewTasks() {
 	e.Logln("等待新的任务分配")
 	var tasks []SigNewTask
+	var typeTask int
 	for {
 		select {
+		case typeTask = <-e.SigNewTaskType:
+			for _, record := range e.getRecords() {
+				if !record.Finished {
+					if typeTask == TYPE_TASK_BEST {
+						if !record.NextBestIf && (record.LeftSimpleNum >= 2 || (record.LeftSimpleNum >= 1 && record.LeftBestIf)) {
+							// 由该record执行
+							e.updateSelfActivityStatus(record)
+						}
+					} else {
+						if record.NextBestIf {
+							// 由该record执行
+							e.updateSelfActivityStatus(record)
+						}
+					}
+				}
+			}
+
 		case tasks = <-e.SigNewTasks:
 			//进行二次分配到具体的activity上
 			bestTasks := e.pickBestTasks(tasks)
@@ -233,8 +251,6 @@ func (e *TaskExeServer) getRecordInfo(channel string, urlKey string) (recordJson
 
 // 每条记录自己单独的抢红包逻辑
 func (e *TaskExeServer) processActivity(record *ActivityRecord) {
-	//e.Logln("new exe:", record.ID)
-
 	//初始化信号
 	sigNewTasks := make(chan []SigNewTask, 10)
 	e.PoolActivity.ActivityChans[record.ID] = sigNewTasks
@@ -261,9 +277,9 @@ func (e *TaskExeServer) processActivity(record *ActivityRecord) {
 						//task.Mobile, task.ID
 						if record.NextBestIf && hasBestTask {
 							e.goodLuckLogic(bestTask, record)
-						} else {
-							e.goodLuckLogic(task, record)
 						}
+						e.goodLuckLogic(task, record)
+
 						if record.Finished {
 							ifFinished = true
 							e.PoolActivity.Delete(record)
@@ -274,11 +290,10 @@ func (e *TaskExeServer) processActivity(record *ActivityRecord) {
 					// 任务全部完成也要通知下
 					//e.updateActivityPoolStatus()
 					e.updateSelfActivityStatus(record)
-				} else {
-					if hasBestTask { //todo 很容易拿到普通任务 改为一个任务一个任务的去拿
-						e.goodLuckLogic(bestTask, record)
-					}
+				} else if hasBestTask {
+					e.goodLuckLogic(bestTask, record)
 				}
+
 			} else {
 				time.Sleep(time.Second * 10)
 				e.updateRecord(record)
@@ -337,37 +352,63 @@ func (e *TaskExeServer) updateSelfActivityStatus(record *ActivityRecord) {
 
 }
 
-func (e *TaskExeServer) goodLuckLogic(task SigNewTask, record *ActivityRecord) (result int) {
-	recordJson, err := e.goodLuckAction(task.Mobile, record.Channel, record.UrlKey)
-	//fmt.Printf("%v", recordJson)
-
-	if err != nil {
-		//执行失败，标记任务失败，不减次数
-		result = RST_CALL_ERR
-		recordJson = &ActivityInfoJson{
-			CouponsCount:  0,
-			BestLuckPrice: 0,
-			CanContinue:   false,
-			Finished:      false,
-			Code:          RST_CALL_ERR,
-			Luck:          nil,
-			Surprise:      nil,
-		}
-		//return
-	}
-	common.Log.INFO.Printf("status:%v", recordJson.Code)
+func (e *TaskExeServer) deliverResultBackToGenServer(result TaskResult) {
 	go func() {
-		e.TaskResult <- TaskResult{
+		e.TaskResult <- result
+	}()
+}
+
+func (e *TaskExeServer) goodLuckLogic(task SigNewTask, record *ActivityRecord) (result int) {
+	// 需要最佳任务但是不是
+	needBestButGotSimple := false
+	needSimpleButGotBest := false
+	if task.Type == TYPE_TASK_BEST && !record.NextBestIf {
+		needBestButGotSimple = true
+		e.deliverResultBackToGenServer(TaskResult{
+			Task:   &task,
+			Status: RST_NEED_BEST_GOT_NONE,
+		})
+	} else {
+		beforeLeftBestIf := record.LeftBestIf
+		recordJson, err := e.goodLuckAction(task.Mobile, record.Channel, record.UrlKey)
+		if err != nil {
+			result = RST_CALL_ERR
+			recordJson = &ActivityInfoJson{
+				CouponsCount:  0,
+				BestLuckPrice: 0,
+				CanContinue:   false,
+				Finished:      false,
+				Code:          RST_CALL_ERR,
+				Luck:          nil,
+				Surprise:      nil,
+			}
+		}
+		e.getRecordFromJson(record, record.Channel, record.UrlKey, record.BestLuckPos, recordJson)
+		err = e.PoolActivity.Update(record)
+
+		if task.Type == TYPE_TASK_BEST && record.LeftBestIf {
+			needBestButGotSimple = true
+		} else if task.Type == TYPE_TASK_SIMPLE && !record.LeftBestIf && beforeLeftBestIf {
+			//需要普通任务，但是却执行了最佳任务
+			needSimpleButGotBest = true
+		}
+		if needBestButGotSimple {
+			recordJson.Code = RST_NEED_BEST_GOT_SIMPLE
+
+		} else if needSimpleButGotBest {
+
+		} else {
+
+		}
+		e.deliverResultBackToGenServer(TaskResult{
 			Task:     &task,
 			Status:   recordJson.Code,
 			RecordID: record.ID,
 			Luck:     recordJson.Luck,
 			Surprise: recordJson.Surprise,
-		}
-	}()
+		})
 
-	e.getRecordFromJson(record, record.Channel, record.UrlKey, record.BestLuckPos, recordJson)
-	err = e.PoolActivity.Update(record)
+	}
 	return RST_OK
 }
 
@@ -438,13 +479,15 @@ func (e *TaskExeServer) Logf(format string, v ...interface{}) {
 //}
 
 const (
-	totalPos            = 20
-	RST_USER_NOT_EXIST  = 4201 //直接标记任务失败，标记用户状态为无效
-	RST_USER_TODAY_FULL = 7001 //直接标记任务失败，总次数不减
-	RST_USER_PICKED     = 4002 //直接标记任务取回，下次可以重取，总次数不减
-	RST_NO_LEFT         = 4000 //直接标记任务取回，下次可以重取，总次数不减
-	RST_ACTIVITY_PASS   = 2002 //直接标记任务取回，下次可以重取，总次数不减
-	RST_NOT_GOT         = 2007 //没领到
-	RST_CALL_ERR        = 9999 // 执行直接错误，可能HTTP
-	RST_OK              = 1    //执行成功
+	totalPos                 = 20
+	RST_USER_NOT_EXIST       = 4201 //直接标记任务失败，标记用户状态为无效
+	RST_USER_TODAY_FULL      = 7001 //直接标记任务失败，总次数不减
+	RST_USER_PICKED          = 4002 //直接标记任务取回，下次可以重取，总次数不减
+	RST_NO_LEFT              = 4000 //直接标记任务取回，下次可以重取，总次数不减
+	RST_ACTIVITY_PASS        = 2002 //直接标记任务取回，下次可以重取，总次数不减
+	RST_NOT_GOT              = 2007 //没领到
+	RST_CALL_ERR             = 9999 // 执行直接错误，可能HTTP
+	RST_NEED_BEST_GOT_SIMPLE = 2    // 需要最佳，但是只得到普通
+	RST_NEED_BEST_GOT_NONE   = 3    // 需要最佳，但是没得挑
+	RST_OK                   = 1    //执行成功
 )
