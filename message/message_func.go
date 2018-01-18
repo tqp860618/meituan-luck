@@ -2,8 +2,10 @@ package message
 
 import (
 	"encoding/json"
+	"fmt"
 	"github.com/gorilla/mux"
 	"github.com/rapidloop/skv"
+	"github.com/spf13/viper"
 	"net/http"
 	"yx.com/meituan-luck/common"
 	"yx.com/meituan-luck/wechat"
@@ -27,6 +29,7 @@ func (m *MsgDis) initKVStore() (store *skv.KVStore, err error) {
 }
 
 func (m *MsgDis) ReceiveWeChatMsg() {
+	fmt.Println("消息分发服务器已启动")
 	rtr := mux.NewRouter()
 	rtr.HandleFunc("/{source}/{fromUid}/{msgType}/{callBackServer}/{msgJson}", func(res http.ResponseWriter, req *http.Request) {
 
@@ -49,21 +52,24 @@ func (m *MsgDis) ReceiveWeChatMsg() {
 
 	}).Methods("GET")
 	http.Handle("/", rtr)
-	common.Log.ERROR.Fatalln(http.ListenAndServe(":7671", nil))
+	common.Log.ERROR.Fatalln(http.ListenAndServe("127.0.0.1:7671", nil))
 }
 
 func (m *MsgDis) MsgHandler(source string, msg *wechat.Message, srv string) {
-	switch source {
-	case common.Md5("牛牛"):
-		go m.MeituanNewGroupUserHandle(msg, srv)
-	case common.Md5("唐生"):
-		go m.MeituanHongbaoReceiveHandle(msg, srv)
-	case common.Md5("tanggo"):
-		go m.MeituanHongbaoReceiveHandle(msg, srv)
-	case common.Md5("小雪"): // 美团红包注册服务
-		go m.MeituanRegUserHandle(msg, srv)
-	case common.Md5("小菜头"): // 彩票
-		go m.CaipiaoNewGroupUserHandle(msg, srv)
+	actionConfigs := viper.GetStringMap("message_dis_server.task_dis")
+	for nickName, action := range actionConfigs {
+		if common.Md5(nickName) == source {
+			switch action {
+			case "meituan_group_add":
+				go m.MeituanNewGroupUserHandle(msg, srv)
+			case "meituan_hongbao_receive":
+				go m.MeituanHongbaoReceiveHandle(msg, srv)
+			case "meituan_user_reg":
+				go m.MeituanRegUserHandle(msg, srv)
+			case "caipiao_group_add":
+				go m.CaipiaoNewGroupUserHandle(msg, srv)
+			}
+			break
+		}
 	}
-
 }

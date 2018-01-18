@@ -3,6 +3,7 @@ package luck
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"github.com/spf13/viper"
 	"io/ioutil"
 	"math"
@@ -26,6 +27,22 @@ func (e *TaskExeServer) Start() {
 func (e *TaskExeServer) getRecords() map[string]*ActivityRecord {
 	return e.PoolActivity.StoreMem
 }
+func (e *TaskExeServer) getRecordsOrderByRand() []*ActivityRecord {
+	records := e.getRecords()
+	index := 0
+	timeNow := int(time.Now().Unix())
+	var rst []*ActivityRecord
+	for _, record := range records {
+		index += 2
+		if timeNow%index > index/2 {
+			rst = append(rst, record)
+		} else {
+			rst = append([]*ActivityRecord{record}, rst...)
+		}
+	}
+
+	return rst
+}
 func (e *TaskExeServer) waitForNewTasks() {
 	e.Logln("等待新的任务分配")
 	var tasks []SigNewTask
@@ -33,20 +50,30 @@ func (e *TaskExeServer) waitForNewTasks() {
 	for {
 		select {
 		case typeTask = <-e.SigNewTaskType:
-			for _, record := range e.getRecords() {
+			gotRecord := false
+			for _, record := range e.getRecordsOrderByRand() {
 				if !record.Finished {
 					if typeTask == TYPE_TASK_BEST {
 						if !record.NextBestIf && (record.LeftSimpleNum >= 2 || (record.LeftSimpleNum >= 1 && record.LeftBestIf)) {
 							// 由该record执行
+							gotRecord = true
+							fmt.Println("找到了合适的任务")
 							e.updateSelfActivityStatus(record)
+							break
 						}
 					} else {
-						if record.NextBestIf {
+						if !record.NextBestIf {
 							// 由该record执行
+							gotRecord = true
+							fmt.Println("找到了合适的任务")
 							e.updateSelfActivityStatus(record)
+							break
 						}
 					}
 				}
+			}
+			if !gotRecord {
+				fmt.Println("找不到合适的任务")
 			}
 
 		case tasks = <-e.SigNewTasks:
@@ -166,7 +193,7 @@ func (e *TaskExeServer) handleNewActivityMsg() {
 
 func (e *TaskExeServer) getRecordFromJson(record *ActivityRecord, channel string, urlKey string, luckBestPos int, recordJson *ActivityInfoJson) {
 
-	record.ID = channel + urlKey
+	record.ID = common.Md5(channel + urlKey)
 	record.Channel = channel
 	record.UrlKey = urlKey
 	record.BestLuckPos = luckBestPos
@@ -264,20 +291,24 @@ func (e *TaskExeServer) processActivity(record *ActivityRecord) {
 		select {
 		case tasks = <-sigNewTasks:
 			if len(tasks) > 0 {
+
 				record.WaitingForJobs = false
 				//对任务进行一次排序，如果有best任务，name要放在合适的位置去循环。但是也不一定，因为别人也在一起抢
 				e.Logf("新任务%v,%v", tasks[0].ID, record.ID)
 				bestTask, hasBestTask := e.pickBestTask(tasks)
 				simpleTasks := e.pickSimpleTasks(tasks)
-
+				fmt.Println("get tasks", len(simpleTasks), bestTask)
 				if len(simpleTasks) > 0 {
 					for i := 0; i < len(simpleTasks); i++ {
 						task = simpleTasks[i]
 						//根据任务类型，执行任务，并修改自己的状态，更新整体的状态
 						//task.Mobile, task.ID
+						fmt.Println("tag1")
 						if record.NextBestIf && hasBestTask {
+							fmt.Println("tag2")
 							e.goodLuckLogic(bestTask, record)
 						}
+						fmt.Println("tag3")
 						e.goodLuckLogic(task, record)
 
 						if record.Finished {
@@ -362,13 +393,16 @@ func (e *TaskExeServer) goodLuckLogic(task SigNewTask, record *ActivityRecord) (
 	// 需要最佳任务但是不是
 	needBestButGotSimple := false
 	needSimpleButGotBest := false
+	fmt.Println("tag4")
 	if task.Type == TYPE_TASK_BEST && !record.NextBestIf {
+		fmt.Println("tag5")
 		needBestButGotSimple = true
 		e.deliverResultBackToGenServer(TaskResult{
 			Task:   &task,
 			Status: RST_NEED_BEST_GOT_NONE,
 		})
 	} else {
+		fmt.Println("tag6")
 		beforeLeftBestIf := record.LeftBestIf
 		recordJson, err := e.goodLuckAction(task.Mobile, record.Channel, record.UrlKey)
 		if err != nil {
@@ -383,6 +417,7 @@ func (e *TaskExeServer) goodLuckLogic(task SigNewTask, record *ActivityRecord) (
 				Surprise:      nil,
 			}
 		}
+		fmt.Println("tag7", recordJson, err)
 		e.getRecordFromJson(record, record.Channel, record.UrlKey, record.BestLuckPos, recordJson)
 		err = e.PoolActivity.Update(record)
 

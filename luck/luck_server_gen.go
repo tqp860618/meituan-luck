@@ -23,13 +23,21 @@ func (g *TaskGenServer) delOldTasks() {
 	//fmt.Println(query)
 	_, _ = g.DBConn.Exec(query)
 }
+func (g *TaskGenServer) renewUsers() {
+
+	query := fmt.Sprintf("update mt_user set can_today_still=1,simple_pick_times_today=0;")
+	_, _ = g.DBConn.Exec(query)
+}
 func (g *TaskGenServer) waitForTaskResults() {
 	var result TaskResult
 	for {
 		select {
 		case result = <-g.TaskResult:
+			fmt.Println("result status", result.Status)
 			switch result.Status {
 			case RST_USER_NOT_EXIST:
+				g.callbackUserNotEXIST(result)
+			case 1006:
 				g.callbackUserNotEXIST(result)
 			case RST_USER_TODAY_FULL:
 				g.callbackUserTodayFull(result)
@@ -67,7 +75,7 @@ func (g *TaskGenServer) callbackUserNotEXIST(result TaskResult) (err error) {
 		return
 	}
 	//标记用户状态为不可用
-	query = fmt.Sprintf("UPDATE mt_user set status=0 where id=%d;", result.Task.UserID)
+	query = fmt.Sprintf("DELETE FROM mt_user where id=%d;", result.Task.UserID)
 	_, err = g.DBConn.Exec(query)
 	if err != nil {
 		return
@@ -82,16 +90,14 @@ func (g *TaskGenServer) callbackUserNotEXIST(result TaskResult) (err error) {
 func (g *TaskGenServer) callbackUserTodayFull(result TaskResult) (err error) {
 	//将用户所有未分配额任务取消
 	query := fmt.Sprintf("UPDATE mt_task set status=%d where uid=%d AND status=%d;", STATUS_TASK_FAIL, result.Task.UserID, STATUS_TASK_ENTER)
-	_, err = g.DBConn.Exec(query)
-	if err != nil {
-		return
-	}
+	g.DBConn.Exec(query)
 
 	query = fmt.Sprintf("UPDATE mt_task set status=%d,err_code=%d where id=%d;", STATUS_TASK_FAIL, result.Status, result.Task.ID)
-	_, err = g.DBConn.Exec(query)
-	if err != nil {
-		return
-	}
+	g.DBConn.Exec(query)
+
+	query = fmt.Sprintf("UPDATE mt_user set can_today_still=0 where id=%d;", result.Task.UserID)
+	g.DBConn.Exec(query)
+
 	//todo 如果绑定微信就给微信发送消息告知今天配额已满
 	return
 
@@ -130,7 +136,7 @@ func (g *TaskGenServer) callbackNotLeft(r TaskResult) (err error) {
 }
 func (g *TaskGenServer) callbackNotBestGotSimple(r TaskResult) (err error) {
 	//原任务返回，创建一条成功的普通记录
-	query := fmt.Sprintf("UPDATE mt_task set status=%d where id=%d;", STATUS_TASK_RESTORE, r.Task.ID)
+	query := fmt.Sprintf("UPDATE mt_task set status=%d where id=%d;", STATUS_TASK_FINISH, r.Task.ID)
 	g.DBConn.Exec(query)
 	// 生成成功的普通记录，算作一条错误奖励
 	nowUnix := time.Now().Unix()
@@ -188,7 +194,7 @@ func (g *TaskGenServer) callbackOK(r TaskResult) (err error) {
 	query = fmt.Sprintf("UPDATE mt_user set pick_money_total=pick_money_total+%d,pick_times_total=pick_times_total+1 where id=%d AND pay_end_time<%d;", r.Luck.Mount, r.Task.UserID, nowUnix)
 	g.DBConn.Exec(query)
 
-	if r.Task.Type == TYPE_TASK_BEST {
+	if r.Luck.IsBest {
 		query = fmt.Sprintf("UPDATE mt_user set best_pick_times_left=best_pick_times_left-1,best_pick_times_total=best_pick_times_total+1 where id=%d AND pay_end_time<%d;", r.Task.UserID, nowUnix)
 		g.DBConn.Exec(query)
 	} else {
@@ -216,6 +222,7 @@ func (g *TaskGenServer) genDailyTask() {
 		}
 		if needToGen {
 			g.delOldTasks()
+			g.renewUsers()
 			go g.genDailySimpleTask()
 			go g.genDailyBestTask()
 			todayGenned = true
@@ -252,8 +259,9 @@ func (g *TaskGenServer) handleNewHandedTask() {
 			now := time.Now().Unix()
 			g.genNewTask(taskID, info.Mobile, now, info.UserID, info.ClientId, info.Type)
 			//告知执行服务器有新的任务，过来取吧
+			fmt.Println("new gen task", taskID)
 			g.SigNewTaskType <- info.Type
-			g.SigNewHandleTasksResult <- taskID
+			info.ResultChan <- taskID
 
 		default:
 
@@ -327,7 +335,7 @@ func (g *TaskGenServer) genDailyBestTask() (err error) {
 
 func (g *TaskGenServer) genNewTask(taskID int64, mobile string, time int64, uid int64, clientID string, typeTask int) {
 
-	g.DBConn.NamedExec("INSERT INTO mt_task(id,status,mobile,time_gen,uid,clientID,type) VALUES(:id,:status,:mobile,:time_gen,:uid,:clientID,:type)", map[string]interface{}{
+	_, err := g.DBConn.NamedExec("INSERT INTO mt_task(id,status,mobile,time_gen,uid,client_id,type) VALUES(:id,:status,:mobile,:time_gen,:uid,:client_id,:type)", map[string]interface{}{
 		"id":        taskID,
 		"status":    STATUS_TASK_ENTER,
 		"mobile":    mobile,
@@ -336,11 +344,12 @@ func (g *TaskGenServer) genNewTask(taskID int64, mobile string, time int64, uid 
 		"client_id": clientID,
 		"type":      typeTask,
 	})
+	common.Log.INFO.Println(err)
 	common.Log.INFO.Printf("gen new task id:%d for %s\n", taskID, mobile)
 
 }
 func (g *TaskGenServer) genTaskID(firstNum int) (i int64, err error) {
-	str := fmt.Sprintf("%d%d%.7d", firstNum, time.Now().Unix(), rand.Intn(1000000))
+	str := fmt.Sprintf("%d%d%.7d", firstNum, time.Now().Unix(), rand.Intn(100000))
 	i, err = strconv.ParseInt(str, 10, 64)
 	return
 }

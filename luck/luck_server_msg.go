@@ -28,15 +28,18 @@ func (m *MsgServer) newTaskHandler(res http.ResponseWriter, req *http.Request) {
 	userID, _ := strconv.ParseInt(params["userID"], 10, 64)
 	clientID := params["clientID"]
 
+	resultChan := make(chan int64, 1)
 	m.LuckServer.TaskGenServer.SigNewHandleTasks <- HandlerTaskInfo{
-		Type:     taskType,
-		UserID:   userID,
-		ClientId: clientID,
-		Mobile:   params["mobile"],
+		Type:       taskType,
+		UserID:     userID,
+		ClientId:   clientID,
+		Mobile:     params["mobile"],
+		ResultChan: resultChan,
 	}
-	newTaskId := <-m.LuckServer.TaskGenServer.SigNewHandleTasksResult
-	jsonBytes, _ := json.Marshal(map[string]interface{}{
-		"taskId": newTaskId,
+	newTaskId := <-resultChan
+	fmt.Println("gen new task2", newTaskId)
+	jsonBytes, _ := json.Marshal(map[string]string{
+		"taskId": fmt.Sprintf("%d", newTaskId),
 	})
 	res.Write(jsonBytes)
 }

@@ -47,10 +47,11 @@ type SigPoolActivityStatus struct {
 }
 
 type HandlerTaskInfo struct {
-	Type     int
-	Mobile   string
-	UserID   int64
-	ClientId string
+	Type       int
+	Mobile     string
+	UserID     int64
+	ClientId   string
+	ResultChan chan int64
 }
 type TaskGenServer struct {
 	DBConn                  *sqlx.DB
