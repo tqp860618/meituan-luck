@@ -195,7 +195,11 @@ func (g *TaskGenServer) callbackOK(r TaskResult) (err error) {
 	g.DBConn.Exec(query)
 
 	if r.Luck.IsBest {
-		query = fmt.Sprintf("UPDATE mt_user set best_pick_times_left=best_pick_times_left-1,best_pick_times_total=best_pick_times_total+1 where id=%d AND pay_end_time<%d;", r.Task.UserID, nowUnix)
+		if r.Task.Type == TYPE_TASK_BEST {
+			query = fmt.Sprintf("UPDATE mt_user set best_pick_times_left=best_pick_times_left-1,best_pick_times_total=best_pick_times_total+1 where id=%d AND pay_end_time<%d;", r.Task.UserID, nowUnix)
+		} else {
+			query = fmt.Sprintf("UPDATE mt_user set best_pick_times_total=best_pick_times_total+1 where id=%d AND pay_end_time<%d;", r.Task.UserID, nowUnix)
+		}
 		g.DBConn.Exec(query)
 	} else {
 		query = fmt.Sprintf("UPDATE mt_user set simple_pick_times_today=simple_pick_times_today+1,pick_times_total=pick_times_total+1 where id=%d AND pay_end_time<%d;", r.Task.UserID, nowUnix)
